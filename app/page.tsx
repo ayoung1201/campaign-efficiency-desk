@@ -319,6 +319,7 @@ export default function Home() {
   const includedIds = useMemo(() => new Set(profiles.filter((p) => p.included).map((p) => p.id)), [profiles]);
   const libraryProfiles = useMemo(() => buildLibraryProfiles(library), [library]);
   const libraryByKey = useMemo(() => new Map(libraryProfiles.map((l) => [l.id, l])), [libraryProfiles]);
+  const librarySources = useMemo(() => [...new Set(library.map((r) => r.source || "미상"))], [library]);
 
   const today = useMemo(() => todaySoFar(hourlyRows), [hourlyRows]);
   const elapsed = useMemo(() => elapsedHours(hourlyRows), [hourlyRows]);
@@ -483,145 +484,165 @@ export default function Home() {
           <div className={`text-center text-[#8792A6] text-[13px] py-16 ${panel} border-dashed`}>캠페인을 먼저 추가해주세요.</div>
         ) : (
           <>
-            {/* 업로드 & 조회 툴바 */}
-            <div className="flex flex-wrap items-center gap-3 mb-4">
-              <div className={toolbarGroup}>
-                <select value={uploadLine} onChange={(e) => setUploadLine(e.target.value)} className={`${input} border-none bg-[#F4F6F9]`}>
-                  {lineOptions.map((l) => (
-                    <option key={l} value={l}>
-                      {l}
-                    </option>
-                  ))}
-                </select>
-                <button onClick={() => mediaFileRef.current?.click()} className={btn}>
-                  <Upload size={14} /> 매체 리포트 업로드
+            {showLibraryPanel ? (
+              /* ---- 다른 캠페인과 비교: 독립된 화면 ---- */
+              <div>
+                <button onClick={() => setShowLibraryPanel(false)} className={`${btn} mb-4`}>
+                  ← 캠페인으로 돌아가기
                 </button>
-                <input ref={mediaFileRef} type="file" accept=".xlsx,.xls,.csv" onChange={handleMediaUpload} className="hidden" />
-                <button onClick={openLineManager} className={btn}>
-                  <SlidersHorizontal size={14} /> 라인 관리
-                </button>
-              </div>
+                <div className={`${panel} p-4`}>
+                  <div className={panelTitle}>매체 라이브러리 — 다른 캠페인들의 매체 평균 효율</div>
+                  <div className="text-[12px] text-[#8792A6] mt-1 mb-3">
+                    지금 조정 중인 캠페인과 무관하게, 과거 캠페인들의 매체 리포트를 계속 쌓아서 매체별 평균 기준을 만듭니다. 매체 표에 자동으로 같이 표시돼요.
+                  </div>
 
-              <div className={toolbarGroup}>
-                <button onClick={() => hourlyFileRef.current?.click()} className={btn}>
-                  <Clock size={14} /> 시간별 리포트 업로드
-                </button>
-                <input ref={hourlyFileRef} type="file" accept=".xlsx,.xls,.csv" onChange={handleHourlyUpload} className="hidden" />
-              </div>
-
-              <div className={toolbarGroup}>
-                <button onClick={() => setShowLibraryPanel((v) => !v)} className={showLibraryPanel ? btnActive : btn}>
-                  <Library size={14} /> 다른 캠페인과 비교
-                </button>
-              </div>
-            </div>
-
-            <div className="text-[11.5px] text-[#8792A6] mb-4 -mt-2">
-              위 라인 선택은 <b>① 업로드할 파일이 어느 라인 것인지</b>, <b>② 아래 매체 표를 어느 라인만 필터해서 볼지</b> 둘 다에 사용돼요. &quot;전체&quot;를 선택하면 모든 라인을 라인별로 묶어서 보여줘요.
-            </div>
-
-            {showLineManager && (
-              <div className={`${panel} p-4 mb-4`}>
-                <div className={`${panelTitle} mb-3`}>&quot;{active.name}&quot; 라인 구성 편집</div>
-                <div className="flex flex-col gap-1.5 mb-3">
-                  {editLines.map((l, i) => (
-                    <div key={i} className="flex gap-1.5 items-center">
-                      <input
-                        type="text"
-                        value={l}
-                        onChange={(e) => updateEditLine(i, e.target.value)}
-                        placeholder={["데스크탑", "모바일app", "모바일web"][i] || "라인명 입력"}
-                        className={`${input} w-56`}
-                      />
-                      {editLines.length > 1 && (
-                        <button onClick={() => removeEditLineField(i)} className="text-[#9AA4B5] hover:text-[#C1442B] text-xs px-1">
-                          ✕
-                        </button>
-                      )}
+                  {librarySources.length > 0 && (
+                    <div className="flex items-center flex-wrap gap-1.5 mb-4">
+                      <span className="text-[11px] font-semibold text-[#8792A6] mr-1">포함된 캠페인 ({librarySources.length})</span>
+                      {librarySources.map((s) => (
+                        <span key={s} className="text-[11.5px] px-2 py-0.5 rounded-full bg-[#F4F6F9] border border-[#E1E5EC] text-[#4A5568]">
+                          {s}
+                        </span>
+                      ))}
                     </div>
-                  ))}
-                  <button onClick={addEditLineField} className="text-[12px] font-semibold text-[#0B1220] self-start mt-1 hover:underline">
-                    + 라인 추가
-                  </button>
-                </div>
-                <div className="flex gap-2">
-                  <button onClick={saveLines} className={btnPrimary}>
-                    저장
-                  </button>
-                  <button onClick={() => setShowLineManager(false)} className={btn}>
-                    취소
-                  </button>
+                  )}
+
+                  <div className="flex gap-2 items-center flex-wrap mb-4">
+                    <input type="text" placeholder="어느 캠페인 데이터인지 (자유 입력)" value={libSource} onChange={(e) => setLibSource(e.target.value)} className={`${input} w-56`} />
+                    <select value={libLine} onChange={(e) => setLibLine(e.target.value)} className={input}>
+                      {LIBRARY_LINE_OPTIONS.map((l) => (
+                        <option key={l} value={l}>
+                          {l}
+                        </option>
+                      ))}
+                    </select>
+                    <button onClick={() => libraryFileRef.current?.click()} className={btn}>
+                      <Upload size={14} /> 매체 리포트 업로드해서 추가
+                    </button>
+                    <input ref={libraryFileRef} type="file" accept=".xlsx,.xls,.csv" onChange={handleLibraryUpload} className="hidden" />
+                  </div>
+                  {error && <div className="text-[#C1442B] text-[13px] mb-3">{error}</div>}
+                  {libraryProfiles.length === 0 ? (
+                    <div className="text-[13px] text-[#8792A6]">아직 쌓인 라이브러리 데이터가 없어요.</div>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-[13px]">
+                        <thead>
+                          <tr className="text-[11px] uppercase tracking-wide text-[#8792A6] bg-[#F7F8FA] border-b border-[#E1E5EC]">
+                            <th className="text-left py-2 px-3 font-semibold">매체</th>
+                            <th className="text-left py-2 px-3 font-semibold">라인</th>
+                            <th className="text-right py-2 px-3 font-semibold">캠페인 수</th>
+                            <th className="text-right py-2 px-3 font-semibold">평균 VTR</th>
+                            <th className="text-right py-2 px-3 font-semibold">평균 CTR</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {[...libraryProfiles]
+                            .sort((a, b) => profileMetrics(b).vtr - profileMetrics(a).vtr)
+                            .map((l) => {
+                              const { vtr, ctr } = profileMetrics(l);
+                              return (
+                                <tr key={l.id} className="border-t border-[#EEF0F4] hover:bg-[#FAFBFC]">
+                                  <td className="py-2 px-3 font-medium">{l.media}</td>
+                                  <td className="py-2 px-3 text-[#64748B]">{l.line}</td>
+                                  <td className="text-right py-2 px-3 font-mono tabular-nums">{l.campaignCount}</td>
+                                  <td className="text-right py-2 px-3 font-mono tabular-nums">{fmt(vtr)}%</td>
+                                  <td className="text-right py-2 px-3 font-mono tabular-nums">{fmt(ctr)}%</td>
+                                </tr>
+                              );
+                            })}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
                 </div>
               </div>
-            )}
+            ) : (
+              <>
+                {/* 업로드 & 조회 툴바 */}
+                <div className="flex flex-wrap items-center gap-3 mb-4">
+                  <div className={toolbarGroup}>
+                    <select value={uploadLine} onChange={(e) => setUploadLine(e.target.value)} className={`${input} border-none bg-[#F4F6F9]`}>
+                      {lineOptions.map((l) => (
+                        <option key={l} value={l}>
+                          {l}
+                        </option>
+                      ))}
+                    </select>
+                    <button onClick={() => mediaFileRef.current?.click()} className={btn}>
+                      <Upload size={14} /> 매체 리포트 업로드
+                    </button>
+                    <input ref={mediaFileRef} type="file" accept=".xlsx,.xls,.csv" onChange={handleMediaUpload} className="hidden" />
+                    <button onClick={openLineManager} className={btn}>
+                      <SlidersHorizontal size={14} /> 라인 관리
+                    </button>
+                  </div>
 
-            {error && <div className="text-[#C1442B] text-[13px] mb-3">{error}</div>}
-            {loading && <div className="text-[#8792A6] text-[13px] mb-3">불러오는 중...</div>}
+                  <div className={toolbarGroup}>
+                    <button onClick={() => hourlyFileRef.current?.click()} className={btn}>
+                      <Clock size={14} /> 시간별 리포트 업로드
+                    </button>
+                    <input ref={hourlyFileRef} type="file" accept=".xlsx,.xls,.csv" onChange={handleHourlyUpload} className="hidden" />
+                  </div>
 
-            {showLibraryPanel && (
-              <div className={`${panel} p-4 mb-5`}>
-                <div className={panelTitle}>매체 라이브러리 — 다른 캠페인들의 매체 평균 효율</div>
-                <div className="text-[12px] text-[#8792A6] mt-1 mb-4">
-                  지금 조정 중인 캠페인과 무관하게, 과거 캠페인들의 매체 리포트를 계속 쌓아서 매체별 평균 기준을 만듭니다. 매체 표에 자동으로 같이 표시돼요.
+                  <div className={toolbarGroup}>
+                    <button onClick={() => setShowLibraryPanel(true)} className={btn}>
+                      <Library size={14} /> 다른 캠페인과 비교
+                    </button>
+                  </div>
                 </div>
-                <div className="flex gap-2 items-center flex-wrap mb-4">
-                  <input type="text" placeholder="어느 캠페인 데이터인지 (자유 입력)" value={libSource} onChange={(e) => setLibSource(e.target.value)} className={`${input} w-56`} />
-                  <select value={libLine} onChange={(e) => setLibLine(e.target.value)} className={input}>
-                    {LIBRARY_LINE_OPTIONS.map((l) => (
-                      <option key={l} value={l}>
-                        {l}
-                      </option>
-                    ))}
-                  </select>
-                  <button onClick={() => libraryFileRef.current?.click()} className={btn}>
-                    <Upload size={14} /> 매체 리포트 업로드해서 추가
-                  </button>
-                  <input ref={libraryFileRef} type="file" accept=".xlsx,.xls,.csv" onChange={handleLibraryUpload} className="hidden" />
+
+                <div className="text-[11.5px] text-[#8792A6] mb-4 -mt-2">
+                  라인 선택은 <b>① 업로드할 파일이 어느 라인 것인지</b>, <b>② 오른쪽 매체 표를 어느 라인만 필터해서 볼지</b> 둘 다에 사용돼요. &quot;전체&quot;를 선택하면 모든 라인을 라인별로 묶어서 보여줘요.
                 </div>
-                {libraryProfiles.length === 0 ? (
-                  <div className="text-[13px] text-[#8792A6]">아직 쌓인 라이브러리 데이터가 없어요.</div>
-                ) : (
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-[13px]">
-                      <thead>
-                        <tr className="text-[11px] uppercase tracking-wide text-[#8792A6] bg-[#F7F8FA] border-b border-[#E1E5EC]">
-                          <th className="text-left py-2 px-3 font-semibold">매체</th>
-                          <th className="text-left py-2 px-3 font-semibold">라인</th>
-                          <th className="text-right py-2 px-3 font-semibold">캠페인 수</th>
-                          <th className="text-right py-2 px-3 font-semibold">평균 VTR</th>
-                          <th className="text-right py-2 px-3 font-semibold">평균 CTR</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {[...libraryProfiles]
-                          .sort((a, b) => profileMetrics(b).vtr - profileMetrics(a).vtr)
-                          .map((l) => {
-                            const { vtr, ctr } = profileMetrics(l);
-                            return (
-                              <tr key={l.id} className="border-t border-[#EEF0F4] hover:bg-[#FAFBFC]">
-                                <td className="py-2 px-3 font-medium">{l.media}</td>
-                                <td className="py-2 px-3 text-[#64748B]">{l.line}</td>
-                                <td className="text-right py-2 px-3 font-mono tabular-nums">{l.campaignCount}</td>
-                                <td className="text-right py-2 px-3 font-mono tabular-nums">{fmt(vtr)}%</td>
-                                <td className="text-right py-2 px-3 font-mono tabular-nums">{fmt(ctr)}%</td>
-                              </tr>
-                            );
-                          })}
-                      </tbody>
-                    </table>
+
+                {showLineManager && (
+                  <div className={`${panel} p-4 mb-4`}>
+                    <div className={`${panelTitle} mb-3`}>&quot;{active.name}&quot; 라인 구성 편집</div>
+                    <div className="flex flex-col gap-1.5 mb-3">
+                      {editLines.map((l, i) => (
+                        <div key={i} className="flex gap-1.5 items-center">
+                          <input
+                            type="text"
+                            value={l}
+                            onChange={(e) => updateEditLine(i, e.target.value)}
+                            placeholder={["데스크탑", "모바일app", "모바일web"][i] || "라인명 입력"}
+                            className={`${input} w-56`}
+                          />
+                          {editLines.length > 1 && (
+                            <button onClick={() => removeEditLineField(i)} className="text-[#9AA4B5] hover:text-[#C1442B] text-xs px-1">
+                              ✕
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                      <button onClick={addEditLineField} className="text-[12px] font-semibold text-[#0B1220] self-start mt-1 hover:underline">
+                        + 라인 추가
+                      </button>
+                    </div>
+                    <div className="flex gap-2">
+                      <button onClick={saveLines} className={btnPrimary}>
+                        저장
+                      </button>
+                      <button onClick={() => setShowLineManager(false)} className={btn}>
+                        취소
+                      </button>
+                    </div>
                   </div>
                 )}
-              </div>
-            )}
+
+                {error && <div className="text-[#C1442B] text-[13px] mb-3">{error}</div>}
+                {loading && <div className="text-[#8792A6] text-[13px] mb-3">불러오는 중...</div>}
 
             {!hasData ? (
               <div className={`text-center text-[#8792A6] text-[13px] py-16 ${panel} border-dashed`}>
                 &quot;{active.name}&quot; 캠페인에 라인별 매체 리포트와 오늘자 시간별 리포트를 모두 업로드해주세요.
               </div>
             ) : (
-              <>
-                <div className="flex gap-4 mb-4 flex-wrap">
-                  <div className={`flex-1 min-w-[260px] ${panel} p-4`}>
+              <div className="grid grid-cols-1 xl:grid-cols-[420px_1fr] gap-4 items-start">
+                {/* 왼쪽: 오늘 현황 / 예산 / 게이지 / 추천 */}
+                <div className="flex flex-col gap-4">
+                  <div className={`${panel} p-4`}>
                     <div className={panelTitle}>금일 진행 현황 (00:00 ~ {String(elapsed).padStart(2, "0")}:00)</div>
                     <div className="flex gap-6 text-[13px] flex-wrap mt-3">
                       <div>
@@ -642,7 +663,8 @@ export default function Home() {
                       </div>
                     </div>
                   </div>
-                  <div className={`flex-1 min-w-[260px] ${panel} p-4`}>
+
+                  <div className={`${panel} p-4`}>
                     <div className={panelTitle}>일예산 &amp; 남은 예산</div>
                     <div className="flex gap-6 text-[13px] items-end flex-wrap mt-3">
                       <div>
@@ -664,120 +686,103 @@ export default function Home() {
                       </div>
                     </div>
                   </div>
-                </div>
 
-                {lineEstimates.length > 1 && (
-                  <div className={`${panel} p-4 mb-4`}>
-                    <div className="flex items-center gap-2">
-                      <div className={panelTitle}>라인별 오늘 예상 현황</div>
-                      <span className="text-[11px] font-semibold text-[#B8842B] bg-[#FBF3E2] px-1.5 py-0.5 rounded">추정치</span>
-                    </div>
-                    <div className="text-[12px] text-[#8792A6] mt-1 mb-3">
-                      각 라인의 과거 소진 비중·효율로 오늘 소진액을 나눠 추정한 값이에요. 실측치가 아닙니다.
-                    </div>
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-[13px]">
-                        <thead>
-                          <tr className="text-[11px] uppercase tracking-wide text-[#8792A6] bg-[#F7F8FA] border-b border-[#E1E5EC]">
-                            <th className="text-left py-2 px-3 font-semibold">라인</th>
-                            <th className="text-right py-2 px-3 font-semibold">추정 소진액</th>
-                            <th className="text-right py-2 px-3 font-semibold">추정 Imps.</th>
-                            <th className="text-right py-2 px-3 font-semibold">추정 VTR</th>
-                            <th className="text-right py-2 px-3 font-semibold">추정 CTR</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {lineEstimates.map((le) => (
-                            <tr key={le.line} className="border-t border-[#EEF0F4] hover:bg-[#FAFBFC]">
-                              <td className="py-2 px-3 font-medium">{le.line}</td>
-                              <td className="text-right py-2 px-3 font-mono tabular-nums">{fmtInt(le.spend)}원</td>
-                              <td className="text-right py-2 px-3 font-mono tabular-nums">{fmtInt(le.imps)}</td>
-                              <td className={`text-right py-2 px-3 font-mono tabular-nums ${inRange(le.vtr, vtrRange) ? "text-[#0E8074]" : "text-[#C1442B]"}`}>{fmt(le.vtr)}%</td>
-                              <td className={`text-right py-2 px-3 font-mono tabular-nums ${inRange(le.ctr, ctrRange) ? "text-[#0E8074]" : "text-[#C1442B]"}`}>{fmt(le.ctr)}%</td>
+                  {lineEstimates.length > 1 && (
+                    <div className={`${panel} p-4`}>
+                      <div className="flex items-center gap-2">
+                        <div className={panelTitle}>라인별 오늘 예상 현황</div>
+                        <span className="text-[11px] font-semibold text-[#B8842B] bg-[#FBF3E2] px-1.5 py-0.5 rounded">추정치</span>
+                      </div>
+                      <div className="text-[12px] text-[#8792A6] mt-1 mb-3">각 라인의 과거 소진 비중·효율로 오늘 소진액을 나눠 추정한 값이에요. 실측치가 아닙니다.</div>
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-[13px]">
+                          <thead>
+                            <tr className="text-[11px] uppercase tracking-wide text-[#8792A6] bg-[#F7F8FA] border-b border-[#E1E5EC]">
+                              <th className="text-left py-2 px-3 font-semibold">라인</th>
+                              <th className="text-right py-2 px-3 font-semibold">소진액</th>
+                              <th className="text-right py-2 px-3 font-semibold">VTR</th>
+                              <th className="text-right py-2 px-3 font-semibold">CTR</th>
                             </tr>
-                          ))}
-                        </tbody>
-                      </table>
+                          </thead>
+                          <tbody>
+                            {lineEstimates.map((le) => (
+                              <tr key={le.line} className="border-t border-[#EEF0F4] hover:bg-[#FAFBFC]">
+                                <td className="py-2 px-3 font-medium">{le.line}</td>
+                                <td className="text-right py-2 px-3 font-mono tabular-nums">{fmtInt(le.spend)}원</td>
+                                <td className={`text-right py-2 px-3 font-mono tabular-nums ${inRange(le.vtr, vtrRange) ? "text-[#0E8074]" : "text-[#C1442B]"}`}>{fmt(le.vtr)}%</td>
+                                <td className={`text-right py-2 px-3 font-mono tabular-nums ${inRange(le.ctr, ctrRange) ? "text-[#0E8074]" : "text-[#C1442B]"}`}>{fmt(le.ctr)}%</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* 게이지 */}
+                  <div className={`${panel} px-5 py-5`}>
+                    <div className="flex gap-4 justify-center mb-3">
+                      <Gauge label="현재 VTR" value={currentProjection.vtr} rangeMin={targetVTRMin} rangeMax={targetVTRMax} maxScale={100} />
+                      <Gauge label="현재 CTR" value={currentProjection.ctr} rangeMin={targetCTRMin} rangeMax={targetCTRMax} maxScale={Math.max(targetCTRMax * 3, 5)} />
+                    </div>
+                    <div className={`font-bold text-[14px] mb-1.5 text-center ${statusMet ? "text-[#0E8074]" : "text-[#C1442B]"}`}>
+                      {statusMet ? "금일 목표 범위 달성 예상" : "금일 목표 범위 이탈 예상"}
+                    </div>
+                    <div className="text-[11.5px] text-[#8792A6] leading-relaxed text-center">
+                      오늘 {elapsed}시간 실적 + 남은 {remainingHrs}시간·{fmtInt(remainingBudget)}원을 켜진 매체(+라인) 비중대로 배분한 예상치 (목표 VTR {fmt(targetVTRMin)}~{fmt(targetVTRMax)}%, CTR {fmt(targetCTRMin)}~{fmt(targetCTRMax)}%)
                     </div>
                   </div>
-                )}
 
-                {/* 게이지 */}
-                <div className={`grid grid-cols-[auto_auto_1fr] gap-6 mb-5 items-center ${panel} px-7 py-5`}>
-                  <Gauge label="현재 VTR" value={currentProjection.vtr} rangeMin={targetVTRMin} rangeMax={targetVTRMax} maxScale={100} />
-                  <Gauge label="현재 CTR" value={currentProjection.ctr} rangeMin={targetCTRMin} rangeMax={targetCTRMax} maxScale={Math.max(targetCTRMax * 3, 5)} />
-                  <div>
-                    <div className={`font-bold text-[15px] mb-2 ${statusMet ? "text-[#0E8074]" : "text-[#C1442B]"}`}>
-                      {statusMet ? "현재 매체 구성 유지 시 금일 목표 범위 달성 예상" : "현재 구성 유지 시 금일 목표 범위 이탈 예상"}
-                    </div>
-                    <div className="text-[12px] text-[#8792A6] leading-relaxed">
-                      오늘 {elapsed}시간 실적에, 남은 {remainingHrs}시간·{fmtInt(remainingBudget)}원을 켜진 매체(+라인)들의 과거 누적 소진 비중·효율대로 배분한 예상 마감 수치예요. (목표: VTR {fmt(targetVTRMin)}~{fmt(targetVTRMax)}%, CTR {fmt(targetCTRMin)}~{fmt(targetCTRMax)}%)
-                    </div>
-                  </div>
-                </div>
-
-                {/* 추천 */}
-                <div className={`${panel} p-4 mb-5`}>
-                  <div className={`${panelTitle} mb-3`}>조정 추천 (매체+라인 1개 제외/추가 시뮬레이션)</div>
-                  {recommendations.length === 0 ? (
-                    <div className="text-[13px] text-[#8792A6]">{statusMet ? "이미 목표 범위 안에 있어서 추가 조정이 필요 없어요." : "현재 데이터에서는 뚜렷한 개선 후보가 없어요."}</div>
-                  ) : (
-                    <div className="flex flex-col gap-2">
-                      {recommendations.map((rec, i) => {
-                        const libKey = `${rec.profile.media}__${canonicalLine(rec.profile.line)}`;
-                        const libMatch = libraryByKey.get(libKey);
-                        const cur = profileMetrics(rec.profile);
-                        const lib = libMatch ? profileMetrics(libMatch) : null;
-                        const isCut = rec.action === "제외";
-                        return (
-                          <div
-                            key={rec.profile.id}
-                            className={`flex justify-between items-center px-3 py-2.5 rounded-md border-l-2 ${
-                              isCut ? "border-l-[#C1442B] bg-[#FBEAE6]" : "border-l-[#0E8074] bg-[#E9F5F2]"
-                            }`}
-                          >
-                            <div>
+                  {/* 추천 */}
+                  <div className={`${panel} p-4`}>
+                    <div className={`${panelTitle} mb-3`}>조정 추천</div>
+                    {recommendations.length === 0 ? (
+                      <div className="text-[13px] text-[#8792A6]">{statusMet ? "이미 목표 범위 안에 있어서 추가 조정이 필요 없어요." : "현재 데이터에서는 뚜렷한 개선 후보가 없어요."}</div>
+                    ) : (
+                      <div className="flex flex-col gap-2">
+                        {recommendations.map((rec, i) => {
+                          const libKey = `${rec.profile.media}__${canonicalLine(rec.profile.line)}`;
+                          const libMatch = libraryByKey.get(libKey);
+                          const cur = profileMetrics(rec.profile);
+                          const lib = libMatch ? profileMetrics(libMatch) : null;
+                          const isCut = rec.action === "제외";
+                          return (
+                            <div
+                              key={rec.profile.id}
+                              className={`px-3 py-2.5 rounded-md border-l-2 ${isCut ? "border-l-[#C1442B] bg-[#FBEAE6]" : "border-l-[#0E8074] bg-[#E9F5F2]"}`}
+                            >
                               <div className="font-semibold text-[13px]">
                                 {i + 1}. {rec.profile.media} <span className="text-[#8792A6] font-normal">({rec.profile.line})</span>{" "}
                                 <span className={`font-bold ${isCut ? "text-[#C1442B]" : "text-[#0E8074]"}`}>{rec.action} 추천</span>
                               </div>
                               <div className="text-[11.5px] text-[#8792A6] font-mono mt-0.5">
-                                누적 소진 {fmtInt(rec.profile.spend)}원 · {rec.profile.days}일치
+                                예상 VTR {fmt(rec.proj.vtr)}% ({rec.deltaVTR >= 0 ? "+" : ""}
+                                {fmt(rec.deltaVTR)}%p) · 예상 CTR {fmt(rec.proj.ctr)}% ({rec.deltaCTR >= 0 ? "+" : ""}
+                                {fmt(rec.deltaCTR)}%p)
                                 {lib && (
                                   <>
                                     {" "}
-                                    · 라이브러리 평균 VTR {fmt(lib.vtr)}% (현재 {fmt(cur.vtr)}%, {lib.vtr - cur.vtr >= 0 ? "+" : ""}
-                                    {fmt(lib.vtr - cur.vtr)}%p 차이)
+                                    · 라이브러리 평균 {fmt(lib.vtr)}% (현재 {fmt(cur.vtr)}%)
                                   </>
                                 )}
                               </div>
                             </div>
-                            <div className="text-right text-[12px] font-mono tabular-nums">
-                              <div>
-                                예상 VTR {fmt(rec.proj.vtr)}% ({rec.deltaVTR >= 0 ? "+" : ""}
-                                {fmt(rec.deltaVTR)}%p)
-                              </div>
-                              <div>
-                                예상 CTR {fmt(rec.proj.ctr)}% ({rec.deltaCTR >= 0 ? "+" : ""}
-                                {fmt(rec.deltaCTR)}%p)
-                              </div>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
                 </div>
 
-                {/* 매체 테이블 - 라인별로 그룹핑, 라이브러리 값은 각 셀 아래 함께 표시 */}
-                <div className={`${panel} overflow-hidden`}>
-                  <div className={`px-4 py-3 border-b border-[#E1E5EC]`}>
+                {/* 오른쪽: 매체 테이블 (라인 선택 옆에 바로 보이도록 sticky) */}
+                <div className={`${panel} overflow-hidden xl:sticky xl:top-4`}>
+                  <div className="px-4 py-3 border-b border-[#E1E5EC]">
                     <div className={panelTitle}>매체 상세</div>
                     <div className="text-[11.5px] text-[#8792A6] mt-0.5">라인별로 묶어서 표시 · 작은 회색 숫자는 매체 라이브러리 평균값</div>
                   </div>
-                  <div className="overflow-x-auto">
+                  <div className="overflow-x-auto max-h-[calc(100vh-140px)] overflow-y-auto">
                     <table className="w-full text-[13px]">
-                      <thead>
+                      <thead className="sticky top-0 z-10">
                         <tr className="text-[11px] uppercase tracking-wide text-[#8792A6] bg-[#F7F8FA] border-b border-[#E1E5EC]">
                           <th className="w-8"></th>
                           <th className="text-left py-2 px-3 font-semibold">매체</th>
@@ -826,6 +831,8 @@ export default function Home() {
                     </table>
                   </div>
                 </div>
+              </div>
+            )}
               </>
             )}
           </>
