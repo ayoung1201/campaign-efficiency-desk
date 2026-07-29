@@ -344,6 +344,7 @@ export default function Home() {
   );
 
   const statusMet = inRange(currentProjection.vtr, vtrRange) && inRange(currentProjection.ctr, ctrRange);
+  const todayStatusMet = inRange(today.vtr, vtrRange) && inRange(today.ctr, ctrRange);
   const hasData = profiles.length > 0 && hourlyRows.length > 0;
   const lineEstimates = useMemo(() => estimateTodayByLine(profiles, today.spend), [profiles, today.spend]);
 
@@ -379,11 +380,11 @@ export default function Home() {
             {hasData && (
               <div
                 className={`flex items-center gap-1.5 text-[12px] font-semibold px-2.5 py-1 rounded-full border ${
-                  statusMet ? "text-[#4FE0C4] border-[#1C4A42] bg-[#0F2620]" : "text-[#F5987E] border-[#4A241C] bg-[#26130F]"
+                  todayStatusMet ? "text-[#4FE0C4] border-[#1C4A42] bg-[#0F2620]" : "text-[#F5987E] border-[#4A241C] bg-[#26130F]"
                 }`}
               >
-                <span className={`w-1.5 h-1.5 rounded-full ${statusMet ? "bg-[#4FE0C4]" : "bg-[#F5987E]"}`} />
-                {statusMet ? "금일 목표 달성 예상" : "금일 목표 범위 이탈 예상"}
+                <span className={`w-1.5 h-1.5 rounded-full ${todayStatusMet ? "bg-[#4FE0C4]" : "bg-[#F5987E]"}`} />
+                {todayStatusMet ? "금일 목표 범위 안" : "금일 목표 범위 밖"}
               </div>
             )}
             <div className="flex items-center gap-1.5 text-[12px]">
@@ -735,17 +736,17 @@ export default function Home() {
                     </div>
                   )}
 
-                  {/* 게이지 */}
+                  {/* 게이지 - 지금까지의 실제 수치 (예상치 아님) */}
                   <div className={`${panel} px-5 py-5`}>
                     <div className="flex gap-4 justify-center mb-3">
-                      <Gauge label="오늘 예상 VTR" value={currentProjection.vtr} rangeMin={targetVTRMin} rangeMax={targetVTRMax} maxScale={100} />
-                      <Gauge label="오늘 예상 CTR" value={currentProjection.ctr} rangeMin={targetCTRMin} rangeMax={targetCTRMax} maxScale={Math.max(targetCTRMax * 3, 5)} />
+                      <Gauge label="현재 VTR" value={today.vtr} rangeMin={targetVTRMin} rangeMax={targetVTRMax} maxScale={100} />
+                      <Gauge label="현재 CTR" value={today.ctr} rangeMin={targetCTRMin} rangeMax={targetCTRMax} maxScale={Math.max(targetCTRMax * 3, 5)} />
                     </div>
-                    <div className={`font-bold text-[14px] mb-1.5 text-center ${statusMet ? "text-[#0E8074]" : "text-[#C1442B]"}`}>
-                      {statusMet ? "금일 목표 범위 달성 예상" : "금일 목표 범위 이탈 예상"}
+                    <div className={`font-bold text-[14px] mb-1.5 text-center ${todayStatusMet ? "text-[#0E8074]" : "text-[#C1442B]"}`}>
+                      {todayStatusMet ? "목표 범위 안" : "목표 범위 밖"}
                     </div>
                     <div className="text-[11.5px] text-[#8792A6] leading-relaxed text-center">
-                      오늘 {elapsed}시간 실적 + 남은 {remainingHrs}시간·{fmtInt(remainingBudget)}원을 켜진 매체(+라인) 비중대로 배분한 예상치 (목표 VTR {fmt(targetVTRMin)}~{fmt(targetVTRMax)}%, CTR {fmt(targetCTRMin)}~{fmt(targetCTRMax)}%)
+                      목표 VTR {fmt(targetVTRMin)}~{fmt(targetVTRMax)}%, CTR {fmt(targetCTRMin)}~{fmt(targetCTRMax)}% · 벗어나면 아래 조정 추천을 참고하세요
                     </div>
                   </div>
 
@@ -753,7 +754,7 @@ export default function Home() {
                   <div className={`${panel} p-4`}>
                     <div className={`${panelTitle} mb-3`}>조정 추천</div>
                     {recommendations.length === 0 ? (
-                      <div className="text-[13px] text-[#8792A6]">{statusMet ? "이미 목표 범위 안에 있어서 추가 조정이 필요 없어요." : "현재 데이터에서는 뚜렷한 개선 후보가 없어요."}</div>
+                      <div className="text-[13px] text-[#8792A6]">{statusMet ? "남은 예산을 지금 구성대로 쓰면 목표 범위 안에 들어올 것으로 예상돼요." : "현재 데이터에서는 뚜렷한 개선 후보가 없어요."}</div>
                     ) : (
                       <div className="flex flex-col gap-2">
                         {recommendations.map((rec, i) => {
