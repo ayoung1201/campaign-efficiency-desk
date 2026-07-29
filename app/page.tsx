@@ -345,8 +345,18 @@ export default function Home() {
 
   const statusMet = inRange(currentProjection.vtr, vtrRange) && inRange(currentProjection.ctr, ctrRange);
   const todayStatusMet = inRange(today.vtr, vtrRange) && inRange(today.ctr, ctrRange);
-  const hasData = profiles.length > 0 && hourlyRows.length > 0;
+
   const lineEstimates = useMemo(() => estimateTodayByLine(profiles, today.spend), [profiles, today.spend]);
+
+  // 라인을 선택하면 게이지도 그 라인 기준(추정치)으로, "전체"면 오늘 실제 값으로 보여준다
+  const gaugeStats = useMemo(() => {
+    if (uploadLine === "전체") return { ...today, isEstimate: false };
+    const canon = canonicalLine(uploadLine);
+    const est = lineEstimates.find((le) => le.line === canon);
+    return est ? { imps: est.imps, view: est.view, cclick: est.cclick, spend: est.spend, vtr: est.vtr, ctr: est.ctr, isEstimate: true } : { ...today, isEstimate: false };
+  }, [uploadLine, today, lineEstimates]);
+  const gaugeInRange = inRange(gaugeStats.vtr, vtrRange) && inRange(gaugeStats.ctr, ctrRange);
+  const hasData = profiles.length > 0 && hourlyRows.length > 0;
 
   // 현재 라인 필터 적용 + 표준 라인 카테고리로 그룹핑
   const groupedProfiles = useMemo(() => {
@@ -661,23 +671,24 @@ export default function Home() {
                 {/* 왼쪽: 오늘 현황 / 예산 / 게이지 / 추천 */}
                 <div className="flex flex-col gap-4">
                   <div className={`${panel} p-4`}>
-                    <div className={panelTitle}>금일 진행 현황 (00:00 ~ {String(elapsed).padStart(2, "0")}:00)</div>
-                    <div className="flex gap-6 text-[13px] flex-wrap mt-3">
-                      <div>
-                        <div className={label}>지금까지 VTR</div>
-                        <div className={`font-bold text-[17px] font-mono tabular-nums ${inRange(today.vtr, vtrRange) ? "text-[#0E8074]" : "text-[#C1442B]"}`}>{fmt(today.vtr)}%</div>
-                      </div>
-                      <div>
-                        <div className={label}>지금까지 CTR</div>
-                        <div className={`font-bold text-[17px] font-mono tabular-nums ${inRange(today.ctr, ctrRange) ? "text-[#0E8074]" : "text-[#C1442B]"}`}>{fmt(today.ctr)}%</div>
-                      </div>
+                    <div className={panelTitle}>
+                      금일 진행 현황 {uploadLine !== "전체" && <span className="text-[#B8842B] normal-case font-medium">· {uploadLine} (추정)</span>} (00:00 ~ {String(elapsed).padStart(2, "0")}:00)
+                    </div>
+                    <div className="flex gap-4 justify-center my-4">
+                      <Gauge label="VTR" value={gaugeStats.vtr} rangeMin={targetVTRMin} rangeMax={targetVTRMax} maxScale={100} />
+                      <Gauge label="CTR" value={gaugeStats.ctr} rangeMin={targetCTRMin} rangeMax={targetCTRMax} maxScale={Math.max(targetCTRMax * 3, 5)} />
+                    </div>
+                    <div className={`font-bold text-[13px] text-center mb-3 ${gaugeInRange ? "text-[#0E8074]" : "text-[#C1442B]"}`}>
+                      {gaugeInRange ? "목표 범위 안" : "목표 범위 밖"}
+                    </div>
+                    <div className="flex justify-center gap-8 text-[13px] pt-3 border-t border-[#EEF0F4]">
                       <div>
                         <div className={label}>Imps.</div>
-                        <div className="font-bold text-[17px] font-mono tabular-nums">{fmtInt(today.imps)}</div>
+                        <div className="font-bold text-[16px] font-mono tabular-nums">{fmtInt(gaugeStats.imps)}</div>
                       </div>
                       <div>
                         <div className={label}>소진액</div>
-                        <div className="font-bold text-[17px] font-mono tabular-nums">{fmtInt(today.spend)}원</div>
+                        <div className="font-bold text-[16px] font-mono tabular-nums">{fmtInt(gaugeStats.spend)}원</div>
                       </div>
                     </div>
                   </div>
@@ -708,17 +719,19 @@ export default function Home() {
                   {lineEstimates.length > 1 && (
                     <div className={`${panel} p-4`}>
                       <div className="flex items-center gap-2">
-                        <div className={panelTitle}>라인별 오늘 현황</div>
+                        <div className={panelTitle}>라인별 소진 배분 &amp; 누적 평균 효율</div>
                       </div>
-                      <div className="text-[12px] text-[#8792A6] mt-1 mb-3">오늘 소진액을 각 라인의 과거 소진 비중대로 나눈 값이에요. VTR·CTR은 각 라인의 실제 누적 효율입니다.</div>
+                      <div className="text-[12px] text-[#8792A6] mt-1 mb-3">
+                        소진액은 오늘 소진액을 라인별 과거 비중대로 나눈 값이고, VTR·CTR은 <b>오늘 값이 아니라 각 라인의 전체 기간 누적 평균</b>이에요. 오늘 하루 실적과는 다를 수 있어요.
+                      </div>
                       <div className="overflow-x-auto">
                         <table className="w-full text-[13px]">
                           <thead>
                             <tr className="text-[11px] uppercase tracking-wide text-[#8792A6] bg-[#F7F8FA] border-b border-[#E1E5EC]">
                               <th className="text-left py-2 px-3 font-semibold">라인</th>
                               <th className="text-right py-2 px-3 font-semibold">소진액</th>
-                              <th className="text-right py-2 px-3 font-semibold">VTR</th>
-                              <th className="text-right py-2 px-3 font-semibold">CTR</th>
+                              <th className="text-right py-2 px-3 font-semibold">누적 VTR</th>
+                              <th className="text-right py-2 px-3 font-semibold">누적 CTR</th>
                             </tr>
                           </thead>
                           <tbody>
@@ -735,20 +748,6 @@ export default function Home() {
                       </div>
                     </div>
                   )}
-
-                  {/* 게이지 - 지금까지의 실제 수치 (예상치 아님) */}
-                  <div className={`${panel} px-5 py-5`}>
-                    <div className="flex gap-4 justify-center mb-3">
-                      <Gauge label="현재 VTR" value={today.vtr} rangeMin={targetVTRMin} rangeMax={targetVTRMax} maxScale={100} />
-                      <Gauge label="현재 CTR" value={today.ctr} rangeMin={targetCTRMin} rangeMax={targetCTRMax} maxScale={Math.max(targetCTRMax * 3, 5)} />
-                    </div>
-                    <div className={`font-bold text-[14px] mb-1.5 text-center ${todayStatusMet ? "text-[#0E8074]" : "text-[#C1442B]"}`}>
-                      {todayStatusMet ? "목표 범위 안" : "목표 범위 밖"}
-                    </div>
-                    <div className="text-[11.5px] text-[#8792A6] leading-relaxed text-center">
-                      목표 VTR {fmt(targetVTRMin)}~{fmt(targetVTRMax)}%, CTR {fmt(targetCTRMin)}~{fmt(targetCTRMax)}% · 벗어나면 아래 조정 추천을 참고하세요
-                    </div>
-                  </div>
 
                   {/* 추천 */}
                   <div className={`${panel} p-4`}>
