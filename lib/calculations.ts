@@ -210,17 +210,19 @@ export interface LineEstimate {
   cclick: number;
   vtr: number;
   ctr: number;
+  maxDays: number; // 이 라인에 섞여 있는 매체 중 가장 많은 날짜 수 (1보다 크면 여러 날짜가 누적된 평균)
 }
 
 export function estimateTodayByLine(profiles: MediaProfile[], todaySpend: number): LineEstimate[] {
-  const lineGroups = new Map<string, { spend: number; imps: number; view: number; cclick: number }>();
+  const lineGroups = new Map<string, { spend: number; imps: number; view: number; cclick: number; maxDays: number }>();
   for (const p of profiles) {
     const key = canonicalLine(p.line);
-    const g = lineGroups.get(key) || { spend: 0, imps: 0, view: 0, cclick: 0 };
+    const g = lineGroups.get(key) || { spend: 0, imps: 0, view: 0, cclick: 0, maxDays: 0 };
     g.spend += p.spend;
     g.imps += p.imps;
     g.view += p.view;
     g.cclick += p.cclick;
+    g.maxDays = Math.max(g.maxDays, p.days);
     lineGroups.set(key, g);
   }
   const totalSpend = [...lineGroups.values()].reduce((s, g) => s + g.spend, 0);
@@ -240,6 +242,7 @@ export function estimateTodayByLine(profiles: MediaProfile[], todaySpend: number
       cclick: estClick,
       vtr: estImps ? (estView / estImps) * 100 : 0,
       ctr: estImps ? (estClick / estImps) * 100 : 0,
+      maxDays: g.maxDays,
     });
   }
   return results.sort((a, b) => b.spend - a.spend);

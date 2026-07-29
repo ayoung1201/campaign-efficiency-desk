@@ -737,7 +737,14 @@ export default function Home() {
                           <tbody>
                             {lineEstimates.map((le) => (
                               <tr key={le.line} className="border-t border-[#EEF0F4] hover:bg-[#FAFBFC]">
-                                <td className="py-2 px-3 font-medium">{le.line}</td>
+                                <td className="py-2 px-3 font-medium">
+                                  {le.line}
+                                  {le.maxDays > 1 && (
+                                    <span className="ml-1.5 text-[10.5px] font-semibold text-[#B8842B] bg-[#FBF3E2] px-1.5 py-0.5 rounded-full align-middle">
+                                      {le.maxDays}일치 평균
+                                    </span>
+                                  )}
+                                </td>
                                 <td className="text-right py-2 px-3 font-mono tabular-nums">{fmtInt(le.spend)}원</td>
                                 <td className={`text-right py-2 px-3 font-mono tabular-nums ${inRange(le.vtr, vtrRange) ? "text-[#0E8074]" : "text-[#C1442B]"}`}>{fmt(le.vtr)}%</td>
                                 <td className={`text-right py-2 px-3 font-mono tabular-nums ${inRange(le.ctr, ctrRange) ? "text-[#0E8074]" : "text-[#C1442B]"}`}>{fmt(le.ctr)}%</td>
