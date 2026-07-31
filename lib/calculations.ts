@@ -8,7 +8,7 @@ export function sumRows(rows: { imps: number; view: number; cclick: number; spen
   return { imps, view, cclick, spend, vtr: imps ? (view / imps) * 100 : 0, ctr: imps ? (cclick / imps) * 100 : 0 };
 }
 
-export function fmt(n: number | null | undefined, d = 1): string {
+export function fmt(n: number | null | undefined, d = 2): string {
   if (n === null || n === undefined || isNaN(n)) return "-";
   return n.toLocaleString("ko-KR", { maximumFractionDigits: d, minimumFractionDigits: d });
 }
