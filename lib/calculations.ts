@@ -237,15 +237,85 @@ export function inRange(value: number, range: Range): boolean {
   return value >= range.min && value <= range.max;
 }
 
-export interface Recommendation {
+export interface RecommendationAction {
   profile: MediaProfile;
   action: "제외" | "추가";
+}
+
+export interface RecommendationBundle {
+  rank: number;
+  actions: RecommendationAction[];
   proj: Stats;
   deltaVTR: number;
   deltaCTR: number;
-  score: number;
 }
 
+const MAX_BUNDLE_STEPS = 5; // 한 조합에 담을 최대 조치 개수 (너무 길면 실행하기 부담스러우므로 제한)
+const MAX_BUNDLES = 3; // 1순위~3순위까지만 제시
+
+// 목표 범위에 가장 빠르게 도달하는 매체 조합을 그리디하게 찾는다.
+// 매 단계마다 "지금 남은 gap을 가장 많이 줄이는 단일 조치"를 골라 조합에 추가하고,
+// 목표 범위 안에 들어오거나 더 이상 도움이 되는 조치가 없으면 멈춘다.
+function buildGreedyBundle(
+  profiles: MediaProfile[],
+  includedIds: Set<string>,
+  today: Stats,
+  remainingBudget: number,
+  currentProjection: Stats,
+  vtrRange: Range,
+  ctrRange: Range,
+  eligible: MediaProfile[],
+  forbiddenFirstIds: Set<string>
+): RecommendationBundle | null {
+  const vtrNorm = Math.max(vtrRange.max, 1);
+  const ctrNorm = Math.max(ctrRange.max, 0.01);
+
+  let included = new Set(includedIds);
+  let proj = currentProjection;
+  const actions: RecommendationAction[] = [];
+  const used = new Set<string>();
+
+  for (let step = 0; step < MAX_BUNDLE_STEPS; step++) {
+    const gapVTR = rangeGap(proj.vtr, vtrRange);
+    const gapCTR = rangeGap(proj.ctr, ctrRange);
+    if (gapVTR === 0 && gapCTR === 0) break;
+
+    let best: { profile: MediaProfile; score: number; proj: Stats; wasIncluded: boolean } | null = null;
+    for (const m of eligible) {
+      if (used.has(m.id)) continue;
+      if (step === 0 && forbiddenFirstIds.has(m.id)) continue;
+      const flipped = new Set(included);
+      const wasIncluded = flipped.has(m.id);
+      if (wasIncluded) flipped.delete(m.id);
+      else flipped.add(m.id);
+
+      const candProj = projectFinal(today, profiles, flipped, remainingBudget);
+      const deltaVTR = candProj.vtr - proj.vtr;
+      const deltaCTR = candProj.ctr - proj.ctr;
+
+      let score = 0;
+      if (gapVTR !== 0) score += (gapVTR > 0 ? deltaVTR : -deltaVTR) / vtrNorm;
+      if (gapCTR !== 0) score += (gapCTR > 0 ? deltaCTR : -deltaCTR) / ctrNorm;
+
+      if (!best || score > best.score) best = { profile: m, score, proj: candProj, wasIncluded };
+    }
+
+    if (!best || best.score <= 0.001) break;
+    const flipped = new Set(included);
+    if (best.wasIncluded) flipped.delete(best.profile.id);
+    else flipped.add(best.profile.id);
+    included = flipped;
+    used.add(best.profile.id);
+    actions.push({ profile: best.profile, action: best.wasIncluded ? "제외" : "추가" });
+    proj = best.proj;
+  }
+
+  if (actions.length === 0) return null;
+  return { rank: 0, actions, proj, deltaVTR: proj.vtr - currentProjection.vtr, deltaCTR: proj.ctr - currentProjection.ctr };
+}
+
+// 매체를 하나씩 따로 추천하는 대신, 목표 범위 도달까지 함께 조정할 매체 "조합"을 1순위/2순위 순으로 제시한다.
+// 1순위는 가장 효과적인 조합, 2순위 이후는 1순위의 첫 조치를 배제하고 다시 찾은 대안 조합이다.
 export function buildRecommendations(
   profiles: MediaProfile[],
   includedIds: Set<string>,
@@ -254,36 +324,42 @@ export function buildRecommendations(
   currentProjection: Stats,
   vtrRange: Range,
   ctrRange: Range
-): Recommendation[] {
+): RecommendationBundle[] {
   const gapVTR = rangeGap(currentProjection.vtr, vtrRange);
   const gapCTR = rangeGap(currentProjection.ctr, ctrRange);
   if (gapVTR === 0 && gapCTR === 0) return [];
 
-  const vtrNorm = Math.max(vtrRange.max, 1);
-  const ctrNorm = Math.max(ctrRange.max, 0.01);
+  const eligible = profiles.filter((m) => !(m.spend === 0 && m.imps === 0));
+  const bundleKey = (b: RecommendationBundle) =>
+    [...b.actions.map((a) => a.profile.id)].sort().join(",");
 
-  const results: Recommendation[] = [];
-  for (const m of profiles) {
-    if (m.spend === 0 && m.imps === 0) continue;
-    const flipped = new Set(includedIds);
-    const wasIncluded = flipped.has(m.id);
-    if (wasIncluded) flipped.delete(m.id);
-    else flipped.add(m.id);
+  const bundles: RecommendationBundle[] = [];
+  const seenKeys = new Set<string>();
+  const forbiddenFirstIds = new Set<string>();
 
-    const proj = projectFinal(today, profiles, flipped, remainingBudget);
-    const deltaVTR = proj.vtr - currentProjection.vtr;
-    const deltaCTR = proj.ctr - currentProjection.ctr;
-
-    let score = 0;
-    // gap이 양수(부족)면 delta가 오르는 쪽이 좋고, gap이 음수(초과)면 delta가 내려가는 쪽이 좋다
-    if (gapVTR !== 0) score += (gapVTR > 0 ? deltaVTR : -deltaVTR) / vtrNorm;
-    if (gapCTR !== 0) score += (gapCTR > 0 ? deltaCTR : -deltaCTR) / ctrNorm;
-
-    if (score > 0.001) {
-      results.push({ profile: m, action: wasIncluded ? "제외" : "추가", proj, deltaVTR, deltaCTR, score });
+  while (bundles.length < MAX_BUNDLES) {
+    const bundle = buildGreedyBundle(
+      profiles,
+      includedIds,
+      today,
+      remainingBudget,
+      currentProjection,
+      vtrRange,
+      ctrRange,
+      eligible,
+      forbiddenFirstIds
+    );
+    if (!bundle) break;
+    const key = bundleKey(bundle);
+    if (!seenKeys.has(key)) {
+      seenKeys.add(key);
+      bundles.push(bundle);
     }
+    // 다음 대안 조합을 찾기 위해, 이번에 1번째로 골랐던 매체를 다음 탐색에서는 제외한다
+    forbiddenFirstIds.add(bundle.actions[0].profile.id);
   }
-  return results.sort((a, b) => b.score - a.score).slice(0, 6);
+
+  return bundles.map((b, i) => ({ ...b, rank: i + 1 }));
 }
 
 export interface LineEstimate {

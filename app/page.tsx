@@ -21,7 +21,7 @@ import {
   todayStr,
 } from "../lib/calculations";
 import Gauge from "../components/Gauge";
-import { Upload, SlidersHorizontal, Library, RotateCcw, Trash2, Plus } from "lucide-react";
+import { Upload, SlidersHorizontal, Library, RotateCcw, Trash2, Plus, Files } from "lucide-react";
 
 const CANONICAL_ORDER = ["데스크탑", "모바일app", "모바일web"];
 const LIBRARY_LINE_OPTIONS = ["데스크탑", "모바일app", "모바일web"];
@@ -66,6 +66,7 @@ export default function Home() {
   const [libViewLine, setLibViewLine] = useState("전체");
 
   const mediaFileRef = useRef<HTMLInputElement>(null);
+  const batchFileRef = useRef<HTMLInputElement>(null);
   const libraryFileRef = useRef<HTMLInputElement>(null);
 
   const active = campaigns.find((c) => c.id === activeId) || null;
@@ -220,6 +221,58 @@ export default function Home() {
       }
     } catch {
       setError("매체 리포트 파일을 읽는 중 문제가 발생했어요.");
+    }
+  };
+
+  // 여러 파일을 한 번에 선택하면, 선택한 순서 그대로 이 캠페인의 라인 구성 순서(전체 제외)에 매칭해서 업로드한다.
+  // 예: 자이스 라인이 [데스크탑_2039, 데스크탑_5059, 모바일app_2039, ...] 순이면 첫 파일 -> 데스크탑_2039, 둘째 파일 -> 데스크탑_5059 ...
+  const handleBatchMediaUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    e.target.value = "";
+    if (!files.length || !active) return;
+
+    const targetLines = (active.lines || []).filter((l) => l && l !== "전체");
+    if (targetLines.length === 0) {
+      setError("이 캠페인에 등록된 라인이 없어요. '라인 관리'에서 라인을 먼저 등록해주세요.");
+      return;
+    }
+
+    const count = Math.min(files.length, targetLines.length);
+    if (files.length !== targetLines.length) {
+      setError(
+        `파일 ${files.length}개 중 ${count}개만 처리했어요. 이 캠페인의 라인 순서는 "${targetLines.join(", ")}" (${targetLines.length}개)예요. 라인 개수만큼 파일을 선택해주세요.`
+      );
+    } else {
+      setError("");
+    }
+
+    const date = todayStr();
+    try {
+      for (let i = 0; i < count; i++) {
+        const line = targetLines[i];
+        const parsed = await parseExcelFile(files[i]);
+        if (!parsed) {
+          setError((prev) => (prev ? prev + ` / "${files[i].name}"(${line}) 인식 실패` : `"${files[i].name}"(${line}) 파일을 인식하지 못했어요.`));
+          continue;
+        }
+        await supabase.from("media_reports").delete().eq("campaign_id", active.id).eq("line_label", line).eq("report_date", date);
+        const rows = parsed.map((r) => ({
+          campaign_id: active.id,
+          media: r.label,
+          line_label: line,
+          report_date: date,
+          imps: r.imps,
+          view: r.view,
+          cclick: r.cclick,
+          spend: r.spend,
+          included: true,
+        }));
+        const { error } = await supabase.from("media_reports").insert(rows);
+        if (error) setError((prev) => (prev ? prev + ` / "${line}" 저장 실패: ${error.message}` : `"${line}" 저장 실패: ${error.message}`));
+      }
+      await loadCampaignData(active.id);
+    } catch {
+      setError("여러 파일을 읽는 중 문제가 발생했어요.");
     }
   };
 
@@ -519,7 +572,7 @@ export default function Home() {
                           </thead>
                           <tbody>
                             {[...libraryProfiles]
-                              .filter((l) => libViewLine === "전체" || l.line === libViewLine)
+                              .filter((l) => libViewLine === "전체" || (l.line === libViewLine && l.imps > 0))
                               .sort((a, b) => profileMetrics(b).vtr - profileMetrics(a).vtr)
                               .map((l) => {
                                 const { vtr, ctr } = profileMetrics(l);
@@ -562,6 +615,17 @@ export default function Home() {
                   </div>
 
                   <div className={toolbarGroup}>
+                    <button
+                      onClick={() => batchFileRef.current?.click()}
+                      className={btn}
+                      title={`파일을 여러 개 선택하면 선택한 순서 그대로 아래 라인 순서에 매칭돼요:\n${lineOptions.slice(1).join(" → ") || "(등록된 라인 없음)"}`}
+                    >
+                      <Files size={14} /> 여러 파일 한번에 업로드
+                    </button>
+                    <input ref={batchFileRef} type="file" accept=".xlsx,.xls,.csv" multiple onChange={handleBatchMediaUpload} className="hidden" />
+                  </div>
+
+                  <div className={toolbarGroup}>
                     <button onClick={() => setShowLibraryPanel(true)} className={btn}>
                       <Library size={14} /> 매체별 평균 효율
                     </button>
@@ -570,6 +634,8 @@ export default function Home() {
 
                 <div className="text-[11.5px] text-[#8792A6] mb-4 -mt-2">
                   라인 선택은 <b>① 업로드할 파일이 어느 라인 것인지</b>, <b>② 오른쪽 매체 표를 어느 라인만 필터해서 볼지</b> 둘 다에 사용돼요. &quot;전체&quot;를 선택하면 모든 라인을 라인별로 묶어서 보여줘요.
+                  <br />
+                  <b>여러 파일 한번에 업로드</b>는 선택한 파일 순서를 라인 구성 순서(<span className="font-mono">{lineOptions.slice(1).join(" → ") || "-"}</span>)에 그대로 매칭해요. 파일 탐색기에서 원하는 순서대로 클릭해 선택해주세요.
                 </div>
 
                 {showLineManager && (
@@ -720,39 +786,46 @@ export default function Home() {
                   {/* 추천 */}
                   <div className={`${panel} p-4`}>
                     <div className={`${panelTitle} mb-3`}>조정 추천</div>
+                    <div className="text-[11.5px] text-[#8792A6] -mt-2 mb-3">매체 하나씩이 아니라, 함께 조정했을 때 목표 범위에 가장 빨리 도달하는 조합을 순위별로 제안해요.</div>
                     {recommendations.length === 0 ? (
                       <div className="text-[13px] text-[#8792A6]">{statusMet ? "남은 예산을 지금 구성대로 쓰면 목표 범위 안에 들어올 것으로 예상돼요." : "현재 데이터에서는 뚜렷한 개선 후보가 없어요."}</div>
                     ) : (
-                      <div className="flex flex-col gap-2">
-                        {recommendations.map((rec, i) => {
-                          const libKey = `${rec.profile.media}__${canonicalLine(rec.profile.line)}`;
-                          const libMatch = libraryByKey.get(libKey);
-                          const cur = profileMetrics(rec.profile);
-                          const lib = libMatch ? profileMetrics(libMatch) : null;
-                          const isCut = rec.action === "제외";
-                          return (
-                            <div
-                              key={rec.profile.id}
-                              className={`px-3 py-2.5 rounded-md border-l-2 ${isCut ? "border-l-[#C1442B] bg-[#FBEAE6]" : "border-l-[#0E8074] bg-[#E9F5F2]"}`}
-                            >
-                              <div className="font-semibold text-[13px]">
-                                {i + 1}. {rec.profile.media} <span className="text-[#8792A6] font-normal">({rec.profile.line})</span>{" "}
-                                <span className={`font-bold ${isCut ? "text-[#C1442B]" : "text-[#0E8074]"}`}>{rec.action} 추천</span>
-                              </div>
-                              <div className="text-[11.5px] text-[#8792A6] font-mono mt-0.5">
-                                예상 VTR {fmt(rec.proj.vtr)}% ({rec.deltaVTR >= 0 ? "+" : ""}
-                                {fmt(rec.deltaVTR)}%p) · 예상 CTR {fmt(rec.proj.ctr)}% ({rec.deltaCTR >= 0 ? "+" : ""}
-                                {fmt(rec.deltaCTR)}%p)
-                                {lib && (
-                                  <>
-                                    {" "}
-                                    · 라이브러리 평균 {fmt(lib.vtr)}% (현재 {fmt(cur.vtr)}%)
-                                  </>
-                                )}
-                              </div>
+                      <div className="flex flex-col gap-3">
+                        {recommendations.map((bundle) => (
+                          <div key={bundle.rank} className="px-3 py-2.5 rounded-md border border-[#E1E5EC] bg-[#FAFBFC]">
+                            <div className="font-semibold text-[13px] mb-1.5">
+                              {bundle.rank}순위 조정 <span className="text-[#8792A6] font-normal">· 매체 {bundle.actions.length}개</span>
                             </div>
-                          );
-                        })}
+                            <div className="flex flex-col gap-1 mb-2">
+                              {bundle.actions.map((a, idx) => {
+                                const libKey = `${a.profile.media}__${canonicalLine(a.profile.line)}`;
+                                const libMatch = libraryByKey.get(libKey);
+                                const cur = profileMetrics(a.profile);
+                                const lib = libMatch ? profileMetrics(libMatch) : null;
+                                const isCut = a.action === "제외";
+                                return (
+                                  <div
+                                    key={a.profile.id}
+                                    className={`px-2.5 py-1.5 rounded border-l-2 text-[12.5px] ${isCut ? "border-l-[#C1442B] bg-[#FBEAE6]" : "border-l-[#0E8074] bg-[#E9F5F2]"}`}
+                                  >
+                                    <span className="font-semibold">
+                                      {idx + 1}. {a.profile.media} <span className="text-[#8792A6] font-normal">({a.profile.line})</span>
+                                    </span>{" "}
+                                    <span className={`font-bold ${isCut ? "text-[#C1442B]" : "text-[#0E8074]"}`}>{a.action}</span>
+                                    {lib && (
+                                      <span className="text-[#8792A6] font-mono"> · 라이브러리 평균 {fmt(lib.vtr)}% (현재 {fmt(cur.vtr)}%)</span>
+                                    )}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                            <div className="text-[11.5px] text-[#8792A6] font-mono">
+                              조정 후 예상 VTR {fmt(bundle.proj.vtr)}% ({bundle.deltaVTR >= 0 ? "+" : ""}
+                              {fmt(bundle.deltaVTR)}%p) · 예상 CTR {fmt(bundle.proj.ctr)}% ({bundle.deltaCTR >= 0 ? "+" : ""}
+                              {fmt(bundle.deltaCTR)}%p)
+                            </div>
+                          </div>
+                        ))}
                       </div>
                     )}
                   </div>
