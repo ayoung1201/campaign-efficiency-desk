@@ -351,8 +351,8 @@ export default function Home() {
   );
 
   const recommendations = useMemo(
-    () => buildRecommendations(profiles, includedIds, today, remainingBudget, currentProjection, vtrRange, ctrRange),
-    [profiles, includedIds, today, remainingBudget, currentProjection, targetVTRMin, targetVTRMax, targetCTRMin, targetCTRMax]
+    () => buildRecommendations(profiles, includedIds, today, remainingBudget, currentProjection, vtrRange, ctrRange, libraryProfiles),
+    [profiles, includedIds, today, remainingBudget, currentProjection, targetVTRMin, targetVTRMax, targetCTRMin, targetCTRMax, libraryProfiles]
   );
 
   const statusMet = inRange(currentProjection.vtr, vtrRange) && inRange(currentProjection.ctr, ctrRange);
@@ -790,6 +790,7 @@ export default function Home() {
                                 const cur = profileMetrics(a.profile);
                                 const lib = libMatch ? profileMetrics(libMatch) : null;
                                 const isCut = a.action === "제외";
+                                const isNewCandidate = a.action === "추가" && a.profile.days === 0; // 아직 이 캠페인에 없는, 라이브러리 기반 신규 추천 매체
                                 return (
                                   <div
                                     key={a.profile.id}
@@ -799,8 +800,13 @@ export default function Home() {
                                       {idx + 1}. {a.profile.media} <span className="text-[#8792A6] font-normal">({a.profile.line})</span>
                                     </span>{" "}
                                     <span className={`font-bold ${isCut ? "text-[#C1442B]" : "text-[#0E8074]"}`}>{a.action}</span>
-                                    {lib && (
-                                      <span className="text-[#8792A6] font-mono"> · 라이브러리 평균 {fmt(lib.vtr)}% (현재 {fmt(cur.vtr)}%)</span>
+                                    {isNewCandidate ? (
+                                      <span className="text-[#8792A6] font-mono">
+                                        {" "}
+                                        · 신규 매체 · 라이브러리 평균 {fmt(lib?.vtr ?? 0)}% 기준 추정
+                                      </span>
+                                    ) : (
+                                      lib && <span className="text-[#8792A6] font-mono"> · 라이브러리 평균 {fmt(lib.vtr)}% (현재 {fmt(cur.vtr)}%)</span>
                                     )}
                                   </div>
                                 );

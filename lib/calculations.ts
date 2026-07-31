@@ -215,6 +215,50 @@ export interface RecommendationBundle {
 const MAX_BUNDLE_STEPS = 5; // 한 조합에 담을 최대 조치 개수 (너무 길면 실행하기 부담스러우므로 제한)
 const MAX_BUNDLES = 3; // 1순위~3순위까지만 제시
 
+// 아직 이 캠페인에 한 번도 올라온 적 없는 매체를, 매체 라이브러리(다른 캠페인들의 평균 효율)에서 찾아
+// "추가하면 이 정도 효율일 것"이라는 가상의 프로필로 만든다. 이 가상 프로필의 spend는 실측치가 아니라
+// 같은 라인에서 현재 포함된 매체들의 평균 소진액으로 추정한 값이며, imps/view/cclick은 라이브러리 평균
+// VTR·CTR·소진효율을 그 추정 spend에 그대로 적용해서 역산한 값이다 (days: 0으로 표시해 실측과 구분).
+function buildAddCandidates(
+  profiles: MediaProfile[],
+  includedIds: Set<string>,
+  libraryProfiles: LibraryProfile[],
+  remainingBudget: number
+): MediaProfile[] {
+  const existingKeys = new Set(profiles.map((p) => `${p.media}__${canonicalLine(p.line)}`));
+  const activeLines = new Set(profiles.map((p) => canonicalLine(p.line)));
+
+  const candidates: MediaProfile[] = [];
+  for (const lp of libraryProfiles) {
+    if (!activeLines.has(lp.line)) continue;
+    if (lp.imps <= 0 || lp.spend <= 0) continue;
+    const key = `${lp.media}__${lp.line}`;
+    if (existingKeys.has(key)) continue; // 이미 이 캠페인에 올라와 있는 매체는 (제외 상태여도) 기존 로직이 커버함
+
+    const sameLinePool = profiles.filter((p) => includedIds.has(p.id) && canonicalLine(p.line) === lp.line && p.spend > 0);
+    const anyPool = sameLinePool.length ? sameLinePool : profiles.filter((p) => includedIds.has(p.id) && p.spend > 0);
+    const estSpend = anyPool.length
+      ? anyPool.reduce((s, p) => s + p.spend, 0) / anyPool.length
+      : Math.max(1, remainingBudget * 0.05);
+    if (estSpend <= 0) continue;
+
+    const estImps = estSpend * (lp.imps / lp.spend);
+    candidates.push({
+      id: `cand__${lp.id}`,
+      latestRowId: "",
+      media: lp.media,
+      line: lp.line,
+      days: 0, // 실측 0일 = 아직 집행 이력이 없는 라이브러리 기반 추정 후보라는 표시
+      imps: estImps,
+      view: estImps * (lp.imps > 0 ? lp.view / lp.imps : 0),
+      cclick: estImps * (lp.imps > 0 ? lp.cclick / lp.imps : 0),
+      spend: estSpend,
+      included: false,
+    });
+  }
+  return candidates;
+}
+
 // 목표 범위에 가장 빠르게 도달하는 매체 조합을 그리디하게 찾는다.
 // 매 단계마다 "지금 남은 gap을 가장 많이 줄이는 단일 조치"를 골라 조합에 추가하고,
 // 목표 범위 안에 들어오거나 더 이상 도움이 되는 조치가 없으면 멈춘다.
@@ -277,6 +321,8 @@ function buildGreedyBundle(
 }
 
 // 매체를 하나씩 따로 추천하는 대신, 목표 범위 도달까지 함께 조정할 매체 "조합"을 1순위/2순위 순으로 제시한다.
+// 기존에 올라와 있는 매체를 껐다 켰다(제외/재추가)하는 것뿐 아니라, 아직 이 캠페인에 없는 매체도
+// 라이브러리 평균 효율을 근거로 "추가" 후보에 포함시킨다.
 // 1순위는 가장 효과적인 조합, 2순위 이후는 1순위의 첫 조치를 배제하고 다시 찾은 대안 조합이다.
 export function buildRecommendations(
   profiles: MediaProfile[],
@@ -285,13 +331,16 @@ export function buildRecommendations(
   remainingBudget: number,
   currentProjection: Stats,
   vtrRange: Range,
-  ctrRange: Range
+  ctrRange: Range,
+  libraryProfiles: LibraryProfile[] = []
 ): RecommendationBundle[] {
   const gapVTR = rangeGap(currentProjection.vtr, vtrRange);
   const gapCTR = rangeGap(currentProjection.ctr, ctrRange);
   if (gapVTR === 0 && gapCTR === 0) return [];
 
-  const eligible = profiles.filter((m) => !(m.spend === 0 && m.imps === 0));
+  const addCandidates = buildAddCandidates(profiles, includedIds, libraryProfiles, remainingBudget);
+  const allProfiles = [...profiles, ...addCandidates];
+  const eligible = allProfiles.filter((m) => !(m.spend === 0 && m.imps === 0));
   const bundleKey = (b: RecommendationBundle) =>
     [...b.actions.map((a) => a.profile.id)].sort().join(",");
 
@@ -301,7 +350,7 @@ export function buildRecommendations(
 
   while (bundles.length < MAX_BUNDLES) {
     const bundle = buildGreedyBundle(
-      profiles,
+      allProfiles,
       includedIds,
       today,
       remainingBudget,
