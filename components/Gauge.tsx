@@ -8,43 +8,31 @@ interface GaugeProps {
   rangeMin: number;
   rangeMax: number;
   unit?: string;
-  maxScale?: number;
 }
 
-// 목표 구간(밴드) 대비 실측치를 보여주는 가로형 불릿 바.
-// 반원 다이얼+바늘 방식보다 한 줄로 조밀하게 배치할 수 있고, 목표 구간과 실측치를 한눈에 비교하기 쉽다.
-export default function Gauge({ label, value, rangeMin, rangeMax, unit = "%", maxScale }: GaugeProps) {
-  const max = maxScale ?? Math.max(rangeMax * 1.6, 1);
-  const pct = (v: number) => Math.min(100, Math.max(0, (v / max) * 100));
+// 진행 바(채워야 할 것 같은 느낌)를 없애고, 목표 범위 충족 여부를 색으로만 표시하는 단순 숫자 카드.
+export default function Gauge({ label, value, rangeMin, rangeMax, unit = "%" }: GaugeProps) {
   const met = value >= rangeMin && value <= rangeMax;
   const accent = met ? "#0E8074" : "#C1442B";
+  const accentBg = met ? "#EAF7F4" : "#FCEEEC";
 
   return (
-    <div className="flex flex-col gap-1.5 w-full">
-      <div className="flex items-baseline justify-between gap-2">
-        <div className="text-[11px] font-semibold uppercase tracking-wide text-[#8792A6]">{label}</div>
-        <div className="flex items-baseline gap-1.5">
-          <span className="text-[19px] font-bold tabular-nums" style={{ color: accent }}>
-            {fmt(value)}
-            {unit}
-          </span>
-          <span className="text-[11px] text-[#9AA4B5] tabular-nums">
-            목표 {fmt(rangeMin)}~{fmt(rangeMax)}
-            {unit}
-          </span>
+    <div className="flex items-center justify-between gap-3 rounded-lg px-3.5 py-3" style={{ backgroundColor: accentBg }}>
+      <div>
+        <div className="text-[11px] font-semibold uppercase tracking-wide" style={{ color: accent }}>
+          {label}
+        </div>
+        <div className="text-[24px] font-bold tabular-nums leading-tight" style={{ color: accent }}>
+          {fmt(value)}
+          {unit}
         </div>
       </div>
-      <div className="relative h-2.5 rounded-full bg-[#EEF0F4] overflow-hidden">
-        <div
-          className="absolute inset-y-0 bg-[#CFEBE5]"
-          style={{ left: `${pct(rangeMin)}%`, width: `${Math.max(0, pct(rangeMax) - pct(rangeMin))}%` }}
-        />
-        <div className="absolute inset-y-0 w-px bg-[#101826]/15" style={{ left: `${pct(rangeMin)}%` }} />
-        <div className="absolute inset-y-0 w-px bg-[#101826]/15" style={{ left: `${pct(rangeMax)}%` }} />
-        <div
-          className="absolute inset-y-0 left-0 rounded-full"
-          style={{ width: `${pct(value)}%`, backgroundColor: accent }}
-        />
+      <div className="text-right">
+        <div className="text-[10.5px] font-medium text-[#8792A6]">목표</div>
+        <div className="text-[13px] font-semibold text-[#4A5568] tabular-nums">
+          {fmt(rangeMin)}~{fmt(rangeMax)}
+          {unit}
+        </div>
       </div>
     </div>
   );

@@ -1,7 +1,11 @@
 "use client";
 
+import { Wallet } from "lucide-react";
 import { fmtHoursMinutes, fmtInt } from "../lib/calculations";
-import { input, label, panel, panelTitle } from "./ui";
+import SectionTitle from "./SectionTitle";
+import { input, label, panel } from "./ui";
+
+const ACCENT = "#B45309";
 
 interface BudgetCardProps {
   dailyBudget: number;
@@ -13,8 +17,10 @@ interface BudgetCardProps {
 export default function BudgetCard({ dailyBudget, onChangeDailyBudget, remainingBudget, remainingHrs }: BudgetCardProps) {
   return (
     <div className={`${panel} p-4`}>
-      <div className={panelTitle}>일예산 &amp; 남은 예산</div>
-      <div className="flex gap-6 text-[13px] items-end flex-wrap mt-3">
+      <SectionTitle icon={Wallet} color={ACCENT}>
+        일예산 &amp; 남은 예산
+      </SectionTitle>
+      <div className="flex gap-6 text-[13px] items-end flex-wrap">
         <div>
           <div className={`${label} mb-1`}>일예산(원)</div>
           <input

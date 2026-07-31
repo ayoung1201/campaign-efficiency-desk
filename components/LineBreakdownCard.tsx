@@ -1,8 +1,12 @@
 "use client";
 
+import { BarChart3 } from "lucide-react";
 import { fmt, fmtInt, inRange, LineEstimate, Range } from "../lib/calculations";
-import { CANONICAL_ORDER } from "../lib/constants";
-import { panel, panelTitle, theadRow } from "./ui";
+import { CANON_COLOR, CANON_COLOR_FALLBACK, CANONICAL_ORDER } from "../lib/constants";
+import SectionTitle from "./SectionTitle";
+import { panel, theadRow } from "./ui";
+
+const ACCENT = "#0D9488";
 
 interface LineBreakdownCardProps {
   lineEstimates: LineEstimate[];
@@ -22,8 +26,10 @@ export default function LineBreakdownCard({ lineEstimates, vtrRange, ctrRange }:
 
   return (
     <div className={`${panel} p-4`}>
-      <div className={panelTitle}>라인별 오늘 실적</div>
-      <div className="overflow-x-auto mt-3 rounded-lg border border-[#EEF0F4]">
+      <SectionTitle icon={BarChart3} color={ACCENT}>
+        라인별 오늘 실적
+      </SectionTitle>
+      <div className="overflow-x-auto rounded-lg border border-[#EEF0F4]">
         <table className="w-full text-[13px]">
           <thead>
             <tr className={theadRow}>
@@ -36,7 +42,13 @@ export default function LineBreakdownCard({ lineEstimates, vtrRange, ctrRange }:
           <tbody>
             {sorted.map((le) => (
               <tr key={le.line} className="border-t border-[#EEF0F4] hover:bg-[#FAFBFC]">
-                <td className="py-2 px-3 font-medium">{le.line}</td>
+                <td className="py-2 px-3 font-medium">
+                  <span
+                    className="inline-block w-2 h-2 rounded-full mr-1.5 align-middle"
+                    style={{ backgroundColor: CANON_COLOR[le.line] ?? CANON_COLOR_FALLBACK }}
+                  />
+                  {le.line}
+                </td>
                 <td className="text-right py-2 px-3 tabular-nums">{fmtInt(le.spend)}원</td>
                 <td className={`text-right py-2 px-3 tabular-nums font-semibold ${inRange(le.vtr, vtrRange) ? "text-[#0E8074]" : "text-[#C1442B]"}`}>{fmt(le.vtr)}%</td>
                 <td className={`text-right py-2 px-3 tabular-nums font-semibold ${inRange(le.ctr, ctrRange) ? "text-[#0E8074]" : "text-[#C1442B]"}`}>{fmt(le.ctr)}%</td>

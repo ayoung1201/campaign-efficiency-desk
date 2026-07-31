@@ -1,8 +1,13 @@
 "use client";
 
+import { LayoutGrid } from "lucide-react";
 import { canonicalLine, fmt, fmtInt, profileMetrics } from "../lib/calculations";
+import { CANON_COLOR, CANON_COLOR_FALLBACK } from "../lib/constants";
 import { LibraryProfile, MediaProfile } from "../lib/types";
-import { panel, panelTitle, theadRow } from "./ui";
+import SectionTitle from "./SectionTitle";
+import { panel, theadRow } from "./ui";
+
+const ACCENT = "#2563EB";
 
 export interface GroupedLine {
   key: string;
@@ -20,16 +25,22 @@ export default function MediaDetailGrid({ groupedProfiles, libraryByKey, onToggl
   return (
     <div className={`${panel} overflow-hidden`}>
       <div className="px-4 py-3 border-b border-[#E1E5EC]">
-        <div className={panelTitle}>매체 상세</div>
-        <div className="text-[11.5px] text-[#8792A6] mt-0.5">라인별로 나란히 표시 · 작은 회색 숫자는 매체별 평균 효율</div>
+        <SectionTitle icon={LayoutGrid} color={ACCENT}>
+          매체 상세
+        </SectionTitle>
+        <div className="text-[11.5px] text-[#8792A6] -mt-2">라인별로 나란히 표시 · 작은 회색 숫자는 매체별 평균 효율</div>
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-4 p-4">
         {groupedProfiles.map((g) => (
           <div key={g.key} className="border border-[#E1E5EC] rounded-lg overflow-hidden flex flex-col">
             <div className="px-3 py-2 border-b border-[#EEF0F4] flex items-center justify-between gap-2">
-              <div className="text-[12.5px] font-semibold text-[#334155] truncate">
+              <div className="text-[12.5px] font-semibold text-[#334155] truncate flex items-center gap-1.5">
+                <span
+                  className="inline-block w-2 h-2 rounded-full shrink-0"
+                  style={{ backgroundColor: CANON_COLOR[g.canon] ?? CANON_COLOR_FALLBACK }}
+                />
                 {g.key}
-                {g.key !== g.canon && <span className="ml-1.5 text-[10.5px] font-normal text-[#9AA4B5]">· {g.canon}</span>}
+                {g.key !== g.canon && <span className="ml-0.5 text-[10.5px] font-normal text-[#9AA4B5]">· {g.canon}</span>}
               </div>
               <div className="text-[11px] text-[#9AA4B5] shrink-0">{g.rows.length}개</div>
             </div>

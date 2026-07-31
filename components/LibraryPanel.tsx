@@ -1,11 +1,14 @@
 "use client";
 
 import { RefObject } from "react";
-import { Upload } from "lucide-react";
+import { Database, Upload } from "lucide-react";
 import { fmt, profileMetrics } from "../lib/calculations";
 import { LibraryProfile } from "../lib/types";
 import { LIBRARY_LINE_OPTIONS } from "../lib/constants";
-import { btn, panel, panelTitle, theadRow } from "./ui";
+import SectionTitle from "./SectionTitle";
+import { btn, panel, theadRow } from "./ui";
+
+const ACCENT = "#0891B2";
 
 interface LibraryPanelProps {
   librarySources: string[];
@@ -28,8 +31,10 @@ export default function LibraryPanel({
 }: LibraryPanelProps) {
   return (
     <div className={`${panel} p-5`}>
-      <div className={panelTitle}>매체별 평균 효율</div>
-      <div className="text-[12px] text-[#8792A6] mt-1 mb-4">
+      <SectionTitle icon={Database} color={ACCENT}>
+        매체별 평균 효율
+      </SectionTitle>
+      <div className="text-[12px] text-[#8792A6] -mt-2 mb-4">
         일별 매체 리포트를 업로드하면 매체명·채널·Imp·View·Click·소진광고비를 자동으로 읽어서 쌓아요. 같은 날짜를 다시 올리면 그 날짜만 덮어쓰고, 다른 날짜는 계속 쌓여서 여러 날 평균이 됩니다.
       </div>
 

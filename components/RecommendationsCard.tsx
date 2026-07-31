@@ -1,8 +1,12 @@
 "use client";
 
+import { Lightbulb } from "lucide-react";
 import { canonicalLine, fmt, profileMetrics, RecommendationBundle } from "../lib/calculations";
 import { LibraryProfile } from "../lib/types";
-import { panel, panelTitle } from "./ui";
+import SectionTitle from "./SectionTitle";
+import { panel } from "./ui";
+
+const ACCENT = "#7C3AED";
 
 interface RecommendationsCardProps {
   recommendations: RecommendationBundle[];
@@ -13,7 +17,9 @@ interface RecommendationsCardProps {
 export default function RecommendationsCard({ recommendations, statusMet, libraryByKey }: RecommendationsCardProps) {
   return (
     <div className={`${panel} p-4`}>
-      <div className={`${panelTitle} mb-3`}>조정 추천</div>
+      <SectionTitle icon={Lightbulb} color={ACCENT}>
+        조정 추천
+      </SectionTitle>
       {recommendations.length === 0 ? (
         <div className="text-[13px] text-[#8792A6]">
           {statusMet ? "남은 예산을 지금 구성대로 쓰면 목표 범위 안에 들어올 것으로 예상돼요." : "현재 데이터에서는 뚜렷한 개선 후보가 없어요."}
