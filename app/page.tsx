@@ -2,28 +2,26 @@
 
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "../lib/supabaseClient";
-import { Campaign, HourlyRow, MediaLibraryRow, MediaRow } from "../lib/types";
-import { parseExcelFile } from "../lib/xlsxParse";
+import { Campaign, MediaLibraryRow, MediaRow } from "../lib/types";
+import { parseExcelFile, parseMasterExcelFile } from "../lib/xlsxParse";
 import {
   buildLibraryProfiles,
   buildMediaProfiles,
   buildRecommendations,
   canonicalLine,
-  elapsedHours,
-  estimateTodayByLine,
+  computeMediaDeltasToday,
+  currentSeoulHourFraction,
+  deltasByLine,
   fmt,
   fmtInt,
   inRange,
   profileMetrics,
   projectFinal,
-  todaySoFar,
+  sumDeltas,
+  todayStr,
 } from "../lib/calculations";
 import Gauge from "../components/Gauge";
-import { Upload, SlidersHorizontal, Clock, Library, RotateCcw, Trash2, Plus } from "lucide-react";
-
-function todayStr() {
-  return new Date().toISOString().slice(0, 10);
-}
+import { Upload, SlidersHorizontal, Library, RotateCcw, Trash2, Plus } from "lucide-react";
 
 const CANONICAL_ORDER = ["데스크탑", "모바일app", "모바일web"];
 const LIBRARY_LINE_OPTIONS = ["데스크탑", "모바일app", "모바일web"];
@@ -45,7 +43,6 @@ export default function Home() {
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [allMediaRows, setAllMediaRows] = useState<MediaRow[]>([]);
-  const [hourlyRows, setHourlyRows] = useState<HourlyRow[]>([]);
 
   // 목표는 "최소 이상"이 아니라 적정 범위(min~max)로 관리
   const [targetVTRMin, setTargetVTRMin] = useState(70);
@@ -66,12 +63,9 @@ export default function Home() {
 
   const [library, setLibrary] = useState<MediaLibraryRow[]>([]);
   const [showLibraryPanel, setShowLibraryPanel] = useState(false);
-  const [libSource, setLibSource] = useState("");
-  const [libLine, setLibLine] = useState(LIBRARY_LINE_OPTIONS[0]);
   const [libViewLine, setLibViewLine] = useState("전체");
 
   const mediaFileRef = useRef<HTMLInputElement>(null);
-  const hourlyFileRef = useRef<HTMLInputElement>(null);
   const libraryFileRef = useRef<HTMLInputElement>(null);
 
   const active = campaigns.find((c) => c.id === activeId) || null;
@@ -94,19 +88,9 @@ export default function Home() {
 
   const loadCampaignData = async (campaignId: string) => {
     setLoading(true);
-    const [mediaRes, hourlyRes] = await Promise.all([
-      supabase.from("media_reports").select("*").eq("campaign_id", campaignId).order("report_date", { ascending: false }),
-      supabase
-        .from("hourly_reports")
-        .select("*")
-        .eq("campaign_id", campaignId)
-        .eq("report_date", todayStr())
-        .order("hour_label", { ascending: true }),
-    ]);
+    const mediaRes = await supabase.from("media_reports").select("*").eq("campaign_id", campaignId).order("report_date", { ascending: false });
     if (mediaRes.error) setError("매체 데이터를 불러오지 못했어요: " + mediaRes.error.message);
     else setAllMediaRows(mediaRes.data || []);
-    if (hourlyRes.error) setError("시간별 데이터를 불러오지 못했어요: " + hourlyRes.error.message);
-    else setHourlyRows(hourlyRes.data || []);
     setLoading(false);
   };
 
@@ -152,7 +136,7 @@ export default function Home() {
   };
 
   const deleteCampaign = async (c: Campaign) => {
-    const ok = window.confirm(`"${c.name}" 캠페인을 삭제할까요?\n이 캠페인에 저장된 매체/시간별 리포트 데이터도 함께 삭제되며, 되돌릴 수 없습니다.`);
+    const ok = window.confirm(`"${c.name}" 캠페인을 삭제할까요?\n이 캠페인에 저장된 매체 리포트 데이터도 함께 삭제되며, 되돌릴 수 없습니다.`);
     if (!ok) return;
     const { error } = await supabase.from("campaigns").delete().eq("id", c.id);
     if (error) {
@@ -164,23 +148,22 @@ export default function Home() {
     if (activeId === c.id) {
       setActiveId(remaining.length > 0 ? remaining[0].id : null);
       setAllMediaRows([]);
-      setHourlyRows([]);
     }
   };
 
   const resetCampaignData = async (c: Campaign) => {
-    const ok = window.confirm(`"${c.name}" 캠페인의 업로드된 매체 리포트·시간별 리포트 데이터를 전부 초기화할까요?\n캠페인명과 라인 구성은 그대로 유지되고, 되돌릴 수 없습니다.`);
+    const ok = window.confirm(`"${c.name}" 캠페인의 업로드된 매체 리포트 데이터를 전부 초기화할까요?\n캠페인명과 라인 구성은 그대로 유지되고, 되돌릴 수 없습니다.`);
     if (!ok) return;
-    const [mediaRes, hourlyRes] = await Promise.all([
+    // hourly_reports는 더 이상 사용하지 않지만, 과거에 쌓아뒀던 데이터가 남아있으면 함께 정리
+    const [mediaRes] = await Promise.all([
       supabase.from("media_reports").delete().eq("campaign_id", c.id),
       supabase.from("hourly_reports").delete().eq("campaign_id", c.id),
     ]);
-    if (mediaRes.error || hourlyRes.error) {
-      setError("초기화 실패: " + (mediaRes.error?.message || hourlyRes.error?.message));
+    if (mediaRes.error) {
+      setError("초기화 실패: " + mediaRes.error.message);
       return;
     }
     setAllMediaRows([]);
-    setHourlyRows([]);
     setError("");
   };
 
@@ -240,52 +223,23 @@ export default function Home() {
     }
   };
 
-  const handleHourlyUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    e.target.value = "";
-    if (!file || !active) return;
-    try {
-      const parsed = await parseExcelFile(file);
-      if (!parsed) {
-        setError("시간별 리포트를 인식하지 못했어요. '시간', 'Imps' 컬럼을 확인해주세요.");
-        return;
-      }
-      await supabase.from("hourly_reports").delete().eq("campaign_id", active.id).eq("report_date", todayStr());
-      const rows = parsed.map((r) => ({
-        campaign_id: active.id,
-        hour_label: r.label,
-        imps: r.imps,
-        view: r.view,
-        cclick: r.cclick,
-        spend: r.spend,
-        report_date: todayStr(),
-      }));
-      const { error } = await supabase.from("hourly_reports").insert(rows);
-      if (error) setError("시간별 리포트 저장 실패: " + error.message);
-      else {
-        setError("");
-        await loadCampaignData(active.id);
-      }
-    } catch {
-      setError("시간별 리포트 파일을 읽는 중 문제가 발생했어요.");
-    }
-  };
-
   const handleLibraryUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     e.target.value = "";
     if (!file) return;
     try {
-      const parsed = await parseExcelFile(file);
+      const parsed = await parseMasterExcelFile(file);
       if (!parsed) {
-        setError("라이브러리 파일을 인식하지 못했어요.");
+        setError("일별 리포트를 인식하지 못했어요. '미디어명', '채널', 'Imp' 컬럼을 확인해주세요.");
         return;
       }
-      const rows = parsed.map((r) => ({
-        source: libSource.trim() || "미상",
-        line_label: libLine,
-        media: r.label,
-        report_date: todayStr(),
+      // 같은 날짜 데이터는 덮어쓰고(재업로드해도 안전), 다른 날짜는 계속 쌓여서 여러 날 평균이 된다
+      await supabase.from("media_library").delete().eq("source", parsed.date);
+      const rows = parsed.rows.map((r) => ({
+        source: parsed.date,
+        line_label: r.line,
+        media: r.media,
+        report_date: parsed.date,
         imps: r.imps,
         view: r.view,
         cclick: r.cclick,
@@ -322,11 +276,17 @@ export default function Home() {
   const libraryByKey = useMemo(() => new Map(libraryProfiles.map((l) => [l.id, l])), [libraryProfiles]);
   const librarySources = useMemo(() => [...new Set(library.map((r) => r.source || "미상"))], [library]);
 
-  const today = useMemo(() => todaySoFar(hourlyRows), [hourlyRows]);
-  const elapsed = useMemo(() => elapsedHours(hourlyRows), [hourlyRows]);
-  const totalSlots = hourlyRows.length || 24;
-  const remainingHrs = Math.max(0, totalSlots - elapsed);
-  const suggestedBudget = elapsed > 0 ? (today.spend / elapsed) * totalSlots : 0;
+  // 매체 리포트는 캠페인 누적 치이므로, 오늘 스냅샷 - 이전 스냅샷 = 오늘 실적 수치를 계산한다 (시간별 리포트 불필요)
+  const todayDate = todayStr();
+  const todayDeltas = useMemo(() => computeMediaDeltasToday(allMediaRows, todayDate), [allMediaRows, todayDate]);
+  const hasTodaySnapshot = todayDeltas.length > 0;
+  const today = useMemo(() => sumDeltas(todayDeltas), [todayDeltas]);
+  const firstDayMediaCount = useMemo(() => todayDeltas.filter((d) => d.isFirstSnapshot).length, [todayDeltas]);
+
+  const elapsed = currentSeoulHourFraction();
+  const elapsedDisplay = Math.floor(elapsed);
+  const remainingHrs = Math.max(0, 24 - elapsed);
+  const suggestedBudget = elapsed > 0 ? (today.spend / elapsed) * 24 : today.spend;
   const dailyBudget = active?.daily_budget ?? Math.round(suggestedBudget);
   const remainingBudget = Math.max(0, dailyBudget - today.spend);
 
@@ -346,17 +306,19 @@ export default function Home() {
   const statusMet = inRange(currentProjection.vtr, vtrRange) && inRange(currentProjection.ctr, ctrRange);
   const todayStatusMet = inRange(today.vtr, vtrRange) && inRange(today.ctr, ctrRange);
 
-  const lineEstimates = useMemo(() => estimateTodayByLine(profiles, today.spend), [profiles, today.spend]);
+  // 오늘 실적 라인별 성과 (추정 수치 - 매체 리포트 날짜별 델타로 계산된 추정치)
+  const lineEstimates = useMemo(() => deltasByLine(todayDeltas), [todayDeltas]);
 
-  // 라인을 선택하면 게이지도 그 라인 기준(추정치)으로, "전체"면 오늘 실제 값으로 보여준다
+  // 라인을 선택하면 게이지도 그 라인 기준으로, "전체"면 캠페인 전체 오늘 값으로 보여준다 (둘 다 실측치)
   const gaugeStats = useMemo(() => {
-    if (uploadLine === "전체") return { ...today, isEstimate: false };
+    if (uploadLine === "전체") return today;
     const canon = canonicalLine(uploadLine);
-    const est = lineEstimates.find((le) => le.line === canon);
-    return est ? { imps: est.imps, view: est.view, cclick: est.cclick, spend: est.spend, vtr: est.vtr, ctr: est.ctr, isEstimate: true } : { ...today, isEstimate: false };
+    const found = lineEstimates.find((le) => le.line === canon);
+    return found ? { imps: found.imps, view: found.view, cclick: found.cclick, spend: found.spend, vtr: found.vtr, ctr: found.ctr } : today;
   }, [uploadLine, today, lineEstimates]);
   const gaugeInRange = inRange(gaugeStats.vtr, vtrRange) && inRange(gaugeStats.ctr, ctrRange);
-  const hasData = profiles.length > 0 && hourlyRows.length > 0;
+  const hasProfiles = profiles.length > 0;
+  const hasData = hasProfiles && hasTodaySnapshot;
 
   // 현재 라인 필터 적용 + 표준 라인 카테고리로 그룹핑
   const groupedProfiles = useMemo(() => {
@@ -440,7 +402,7 @@ export default function Home() {
           </div>
           {active && (
             <div className="flex items-center gap-2 mb-1">
-              <button onClick={() => resetCampaignData(active)} className={btnDanger} title="매체·시간별 리포트 데이터만 삭제, 캠페인명/라인은 유지">
+              <button onClick={() => resetCampaignData(active)} className={btnDanger} title="매체 리포트 데이터만 삭제, 캠페인명/라인은 유지">
                 <RotateCcw size={13} /> 데이터 초기화
               </button>
               <button onClick={() => deleteCampaign(active)} className={btnDanger} title="캠페인 전체 삭제">
@@ -503,14 +465,14 @@ export default function Home() {
                   ← 캠페인으로 돌아가기
                 </button>
                 <div className={`${panel} p-4`}>
-                  <div className={panelTitle}>매체 라이브러리 — 다른 캠페인들의 매체 평균 효율</div>
+                  <div className={panelTitle}>매체별 평균 효율</div>
                   <div className="text-[12px] text-[#8792A6] mt-1 mb-3">
-                    지금 조정 중인 캠페인과 무관하게, 과거 캠페인들의 매체 리포트를 계속 쌓아서 매체별 평균 기준을 만듭니다. 매체 표에 자동으로 같이 표시돼요.
+                    일별 매체 리포트를 업로드하면 매체명·채널·Imp·View·Click·소진광고비를 자동으로 읽어서 쌓아요. 같은 날짜를 다시 올리면 그 날짜만 덮어쓰고, 다른 날짜는 계속 쌓여서 여러 날 평균이 됩니다.
                   </div>
 
                   {librarySources.length > 0 && (
                     <div className="flex items-center flex-wrap gap-1.5 mb-4">
-                      <span className="text-[11px] font-semibold text-[#8792A6] mr-1">포함된 캠페인 ({librarySources.length})</span>
+                      <span className="text-[11px] font-semibold text-[#8792A6] mr-1">포함된 날짜 ({librarySources.length}일치)</span>
                       {librarySources.map((s) => (
                         <span key={s} className="text-[11.5px] px-2 py-0.5 rounded-full bg-[#F4F6F9] border border-[#E1E5EC] text-[#4A5568]">
                           {s}
@@ -520,16 +482,8 @@ export default function Home() {
                   )}
 
                   <div className="flex gap-2 items-center flex-wrap mb-4">
-                    <input type="text" placeholder="어느 캠페인 데이터인지 (자유 입력)" value={libSource} onChange={(e) => setLibSource(e.target.value)} className={`${input} w-56`} />
-                    <select value={libLine} onChange={(e) => setLibLine(e.target.value)} className={input}>
-                      {LIBRARY_LINE_OPTIONS.map((l) => (
-                        <option key={l} value={l}>
-                          {l}
-                        </option>
-                      ))}
-                    </select>
                     <button onClick={() => libraryFileRef.current?.click()} className={btn}>
-                      <Upload size={14} /> 매체 리포트 업로드해서 추가
+                      <Upload size={14} /> 일별 리포트 업로드
                     </button>
                     <input ref={libraryFileRef} type="file" accept=".xlsx,.xls,.csv" onChange={handleLibraryUpload} className="hidden" />
                   </div>
@@ -557,7 +511,7 @@ export default function Home() {
                             <tr className="text-[11px] uppercase tracking-wide text-[#8792A6] bg-[#F7F8FA] border-b border-[#E1E5EC]">
                               <th className="text-left py-2 px-3 font-semibold">매체</th>
                               {libViewLine === "전체" && <th className="text-left py-2 px-3 font-semibold">라인</th>}
-                              <th className="text-right py-2 px-3 font-semibold">캠페인 수</th>
+                              <th className="text-right py-2 px-3 font-semibold">일수</th>
                               <th className="text-right py-2 px-3 font-semibold">평균 VTR</th>
                               <th className="text-right py-2 px-3 font-semibold">평균 CTR</th>
                             </tr>
@@ -604,13 +558,6 @@ export default function Home() {
                     <button onClick={openLineManager} className={btn}>
                       <SlidersHorizontal size={14} /> 라인 관리
                     </button>
-                  </div>
-
-                  <div className={toolbarGroup}>
-                    <button onClick={() => hourlyFileRef.current?.click()} className={btn}>
-                      <Clock size={14} /> 시간별 리포트 업로드
-                    </button>
-                    <input ref={hourlyFileRef} type="file" accept=".xlsx,.xls,.csv" onChange={handleHourlyUpload} className="hidden" />
                   </div>
 
                   <div className={toolbarGroup}>
@@ -662,9 +609,13 @@ export default function Home() {
                 {error && <div className="text-[#C1442B] text-[13px] mb-3">{error}</div>}
                 {loading && <div className="text-[#8792A6] text-[13px] mb-3">불러오는 중...</div>}
 
-            {!hasData ? (
+            {!hasProfiles ? (
               <div className={`text-center text-[#8792A6] text-[13px] py-16 ${panel} border-dashed`}>
-                &quot;{active.name}&quot; 캠페인에 라인별 매체 리포트와 오늘자 시간별 리포트를 모두 업로드해주세요.
+                &quot;{active.name}&quot; 캠페인에 라인별 매체 리포트를 업로드해주세요.
+              </div>
+            ) : !hasTodaySnapshot ? (
+              <div className={`text-center text-[#8792A6] text-[13px] py-16 ${panel} border-dashed`}>
+                오늘({todayDate}) 매체 리포트가 아직 없어요. 오늘 데이터를 업로드하면 이전 대비 증분으로 오늘 실적을 계산해요.
               </div>
             ) : (
               <div className="grid grid-cols-1 xl:grid-cols-[420px_1fr] gap-4 items-start">
@@ -672,7 +623,7 @@ export default function Home() {
                 <div className="flex flex-col gap-4">
                   <div className={`${panel} p-4`}>
                     <div className={panelTitle}>
-                      금일 진행 현황 {uploadLine !== "전체" && <span className="text-[#B8842B] normal-case font-medium">· {uploadLine} (추정)</span>} (00:00 ~ {String(elapsed).padStart(2, "0")}:00)
+                      금일 진행 현황 {uploadLine !== "전체" && <span className="text-[#8792A6] normal-case font-medium">· {uploadLine}</span>} (00:00 ~ {String(elapsedDisplay).padStart(2, "0")}:00 현재)
                     </div>
                     <div className="flex gap-4 justify-center my-4">
                       <Gauge label="VTR" value={gaugeStats.vtr} rangeMin={targetVTRMin} rangeMax={targetVTRMax} maxScale={100} />
@@ -691,6 +642,11 @@ export default function Home() {
                         <div className="font-bold text-[16px] font-mono tabular-nums">{fmtInt(gaugeStats.spend)}원</div>
                       </div>
                     </div>
+                    {firstDayMediaCount > 0 && (
+                      <div className="text-[11px] text-[#B8842B] bg-[#FBF3E2] rounded px-2 py-1 mt-3 text-center">
+                        오늘 처음 업로드된 매체 {firstDayMediaCount}개는 이전 기준값이 없어서 누적 치 전체가 오늘 값으로 잡혔어요. 내일부터는 정확한 증분으로 계산돼요.
+                      </div>
+                    )}
                   </div>
 
                   <div className={`${panel} p-4`}>
@@ -718,24 +674,28 @@ export default function Home() {
 
                   {lineEstimates.length > 1 && (
                     <div className={`${panel} p-4`}>
-                      <div className="flex items-center gap-2">
-                        <div className={panelTitle}>라인별 소진 배분 &amp; 누적 평균 효율</div>
-                      </div>
-                      <div className="text-[12px] text-[#8792A6] mt-1 mb-3">
-                        소진액은 오늘 소진액을 라인별 과거 비중대로 나눈 값이고, VTR·CTR은 <b>오늘 값이 아니라 각 라인의 전체 기간 누적 평균</b>이에요. 오늘 하루 실적과는 다를 수 있어요.
-                      </div>
-                      <div className="overflow-x-auto">
+                      <div className={panelTitle}>라인별 오늘 실적</div>
+                      <div className="overflow-x-auto mt-3">
                         <table className="w-full text-[13px]">
                           <thead>
                             <tr className="text-[11px] uppercase tracking-wide text-[#8792A6] bg-[#F7F8FA] border-b border-[#E1E5EC]">
                               <th className="text-left py-2 px-3 font-semibold">라인</th>
                               <th className="text-right py-2 px-3 font-semibold">소진액</th>
-                              <th className="text-right py-2 px-3 font-semibold">누적 VTR</th>
-                              <th className="text-right py-2 px-3 font-semibold">누적 CTR</th>
+                              <th className="text-right py-2 px-3 font-semibold">VTR</th>
+                              <th className="text-right py-2 px-3 font-semibold">CTR</th>
                             </tr>
                           </thead>
                           <tbody>
-                            {lineEstimates.map((le) => (
+                            {[...lineEstimates]
+                              .sort((a, b) => {
+                                const ia = CANONICAL_ORDER.indexOf(a.line);
+                                const ib = CANONICAL_ORDER.indexOf(b.line);
+                                if (ia === -1 && ib === -1) return a.line.localeCompare(b.line);
+                                if (ia === -1) return 1;
+                                if (ib === -1) return -1;
+                                return ia - ib;
+                              })
+                              .map((le) => (
                               <tr key={le.line} className="border-t border-[#EEF0F4] hover:bg-[#FAFBFC]">
                                 <td className="py-2 px-3 font-medium">
                                   {le.line}

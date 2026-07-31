@@ -30,13 +30,97 @@ export function elapsedHours(hourlyRows: HourlyRow[]): number {
   return last + 1;
 }
 
+// 한국(Asia/Seoul) 달력 기준 오늘 날짜 (YYYY-MM-DD)
+export function todayStr(): string {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Seoul" }).format(new Date());
+}
+
+// 한국(Asia/Seoul) 기준 지금 몇시(소수점 포함, 예: 14시 30분 -> 14.5)
+export function currentSeoulHourFraction(): number {
+  const parts = new Intl.DateTimeFormat("en-US", { timeZone: "Asia/Seoul", hourCycle: "h23", hour: "2-digit", minute: "2-digit" }).formatToParts(
+    new Date()
+  );
+  const hour = Number(parts.find((p) => p.type === "hour")?.value ?? "0") % 24;
+  const minute = Number(parts.find((p) => p.type === "minute")?.value ?? "0");
+  return hour + minute / 60;
+}
+
+export interface MediaDelta {
+  media: string;
+  line: string;
+  imps: number;
+  view: number;
+  cclick: number;
+  spend: number;
+  isFirstSnapshot: boolean; // 이 매체+라인이 오늘 처음 새로된 경우 (이전 대비 증분을 못 구한 경우, 누적 치 전체가 그대로 오늘 값으로 잡힘)
+}
+
+// 매체 리포트는 "캠페인 시작부터 지금까지의 누적 치"이므로, 오늘의 실제 실적은
+// 오늘 스냅샷에서 가장 최근 이전 날짜 스냅샷을 빼서 구한다 (일별 델타).
+// 이렇게 하면 별도의 시간별 리포트 업로드 없이도 오늘 실적을 정확히 계산할 수 있다.
+export function computeMediaDeltasToday(allRows: MediaRow[], today: string): MediaDelta[] {
+  const groups = new Map<string, MediaRow[]>();
+  for (const r of allRows) {
+    const key = `${r.media}__${r.line_label || "전체"}`;
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key)!.push(r);
+  }
+  const deltas: MediaDelta[] = [];
+  for (const rows of groups.values()) {
+    const sorted = [...rows].sort((a, b) => (a.report_date < b.report_date ? 1 : -1)); // 최신순
+    const latest = sorted[0];
+    if (latest.report_date !== today) continue; // 오늘 업데이트가 없는 매체는 오늘 실적 0으로 취급
+    const prev = sorted[1];
+    deltas.push({
+      media: latest.media,
+      line: latest.line_label || "전체",
+      imps: Math.max(0, latest.imps - (prev?.imps ?? 0)),
+      view: Math.max(0, latest.view - (prev?.view ?? 0)),
+      cclick: Math.max(0, latest.cclick - (prev?.cclick ?? 0)),
+      spend: Math.max(0, latest.spend - (prev?.spend ?? 0)),
+      isFirstSnapshot: !prev,
+    });
+  }
+  return deltas;
+}
+
+export function sumDeltas(deltas: MediaDelta[]): Stats {
+  return sumRows(deltas);
+}
+
+// 델타치를 표준 라인 카테고리(데스크탑/모바일app/모바일web)로 묶어서, 오늘 실적 라인별 성과를 만든다 (추정 수치)
+export function deltasByLine(deltas: MediaDelta[]): LineEstimate[] {
+  const groups = new Map<string, { spend: number; imps: number; view: number; cclick: number }>();
+  for (const d of deltas) {
+    const key = canonicalLine(d.line);
+    const g = groups.get(key) || { spend: 0, imps: 0, view: 0, cclick: 0 };
+    g.spend += d.spend;
+    g.imps += d.imps;
+    g.view += d.view;
+    g.cclick += d.cclick;
+    groups.set(key, g);
+  }
+  return [...groups.entries()]
+    .map(([line, g]) => ({
+      line,
+      spend: g.spend,
+      imps: g.imps,
+      view: g.view,
+      cclick: g.cclick,
+      vtr: g.imps ? (g.view / g.imps) * 100 : 0,
+      ctr: g.imps ? (g.cclick / g.imps) * 100 : 0,
+      maxDays: 1,
+    }))
+    .sort((a, b) => b.spend - a.spend);
+}
+
 // 캠페인마다 라인 이름이 제각각이라(예: "데스크탑_2039" vs "데스크탑"), 이름에 포함된
 // 키워드로 데스크탑/모바일app/모바일web 3가지 표준 카테고리로 묶는다.
 // 매체 라이브러리(여러 캠페인 비교)와 매체 테이블 그룹핑에 공통으로 사용.
 export function canonicalLine(line: string): string {
   const l = (line || "").toLowerCase();
-  if (l.includes("모바일app") || l.includes("mobile app") || l.includes("app")) return "모바일app";
-  if (l.includes("모바일web") || l.includes("mobile web") || l.includes("web")) return "모바일web";
+  if (l.includes("모바일app") || l.includes("mobile app") || l.includes("모바일앱") || l.includes("app")) return "모바일app";
+  if (l.includes("모바일web") || l.includes("mobile web") || l.includes("모바일웹") || (l.includes("웹") && !l.includes("데스크")) || l.includes("web")) return "모바일web";
   if (l.includes("데스크탑") || l.includes("데스크톱") || l.includes("desktop") || l.includes("pc")) return "데스크탑";
   return line || "전체";
 }
