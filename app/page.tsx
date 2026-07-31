@@ -309,13 +309,14 @@ export default function Home() {
   // 오늘 실적 라인별 성과 (추정 수치 - 매체 리포트 날짜별 델타로 계산된 추정치)
   const lineEstimates = useMemo(() => deltasByLine(todayDeltas), [todayDeltas]);
 
-  // 라인을 선택하면 게이지도 그 라인 기준으로, "전체"면 캠페인 전체 오늘 값으로 보여준다 (둘 다 실측치)
+  // 라인을 선택하면 게이지도 그 라인만의 실적으로 보여준다 (전체는 데스크탑_2039/데스크탑_5059처럼
+  // 표준 카테고리가 같은 서로 다른 실제 라인이 섞여 있을 수 있으므로, canonicalLine으로 묶지 않고
+  // 정확히 선택된 라인명(uploadLine)과 일치하는 델타만 골라서 합산한다. "전체"면 캠페인 전체 오늘 값.
   const gaugeStats = useMemo(() => {
     if (uploadLine === "전체") return today;
-    const canon = canonicalLine(uploadLine);
-    const found = lineEstimates.find((le) => le.line === canon);
-    return found ? { imps: found.imps, view: found.view, cclick: found.cclick, spend: found.spend, vtr: found.vtr, ctr: found.ctr } : today;
-  }, [uploadLine, today, lineEstimates]);
+    const filtered = todayDeltas.filter((d) => d.line === uploadLine);
+    return filtered.length > 0 ? sumDeltas(filtered) : today;
+  }, [uploadLine, today, todayDeltas]);
   const gaugeInRange = inRange(gaugeStats.vtr, vtrRange) && inRange(gaugeStats.ctr, ctrRange);
   const hasProfiles = profiles.length > 0;
   const hasData = hasProfiles && hasTodaySnapshot;
