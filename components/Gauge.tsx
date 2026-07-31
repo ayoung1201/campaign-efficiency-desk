@@ -11,56 +11,41 @@ interface GaugeProps {
   maxScale?: number;
 }
 
+// 목표 구간(밴드) 대비 실측치를 보여주는 가로형 불릿 바.
+// 반원 다이얼+바늘 방식보다 한 줄로 조밀하게 배치할 수 있고, 목표 구간과 실측치를 한눈에 비교하기 쉽다.
 export default function Gauge({ label, value, rangeMin, rangeMax, unit = "%", maxScale }: GaugeProps) {
   const max = maxScale ?? Math.max(rangeMax * 1.6, 1);
-  const pct = Math.min(1, Math.max(0, value / max));
-  const r = 68,
-    cx = 90,
-    cy = 90;
-
-  const pt = (p: number): [number, number] => {
-    const a = Math.PI * (1 - p);
-    return [cx + r * Math.cos(a), cy - r * Math.sin(a)];
-  };
-  const [vx, vy] = pt(pct);
+  const pct = (v: number) => Math.min(100, Math.max(0, (v / max) * 100));
   const met = value >= rangeMin && value <= rangeMax;
-
-  const arcPath = (fromP: number, toP: number) => {
-    const [x1, y1] = pt(fromP);
-    const [x2, y2] = pt(toP);
-    // 반원(180도) 안에서의 부분 호는 절대 180도를 넘지 않으므로 large-arc-flag는 항상 0
-    return `M ${x1} ${y1} A ${r} ${r} 0 0 1 ${x2} ${y2}`;
-  };
-
-  const trackColor = "#E4E8EF";
-  const goodColor = "#0E8074";
-  const riskColor = "#C1442B";
-  const zoneColor = "#CFEBE5";
-
-  const zoneFromP = Math.min(1, Math.max(0, rangeMin / max));
-  const zoneToP = Math.min(1, Math.max(0, rangeMax / max));
+  const accent = met ? "#0E8074" : "#C1442B";
 
   return (
-    <div className="flex flex-col items-center gap-1">
-      <svg width="180" height="112" viewBox="0 0 180 112">
-        {/* 배경 트랙 */}
-        <path d={arcPath(0, 1)} fill="none" stroke={trackColor} strokeWidth="14" strokeLinecap="round" />
-        {/* 적정 범위 구간 표시 */}
-        <path d={arcPath(zoneFromP, zoneToP)} fill="none" stroke={zoneColor} strokeWidth="14" />
-        {/* 현재 값까지 진행 표시 (얇은 선) */}
-        <path d={arcPath(0, pct)} fill="none" stroke={met ? goodColor : riskColor} strokeWidth="4" strokeLinecap="round" />
-        {/* 현재 값 마커 (동그라미) */}
-        <circle cx={vx} cy={vy} r="7" fill={met ? goodColor : riskColor} stroke="white" strokeWidth="2.5" />
-        <text x={cx} y={cy - 6} textAnchor="middle" fontSize="26" fontWeight="700" fontFamily="'Pretendard Variable', ui-sans-serif, system-ui, sans-serif" fill="#101826">
-          {fmt(value)}
-          {unit}
-        </text>
-        <text x={cx} y={cy + 14} textAnchor="middle" fontSize="11" fontFamily="'Pretendard Variable', ui-sans-serif, system-ui, sans-serif" fill="#8792A6">
-          목표 {fmt(rangeMin)}~{fmt(rangeMax)}
-          {unit}
-        </text>
-      </svg>
-      <div className="text-[12px] font-semibold uppercase tracking-wide text-[#8792A6]">{label}</div>
+    <div className="flex flex-col gap-1.5 w-full">
+      <div className="flex items-baseline justify-between gap-2">
+        <div className="text-[11px] font-semibold uppercase tracking-wide text-[#8792A6]">{label}</div>
+        <div className="flex items-baseline gap-1.5">
+          <span className="text-[19px] font-bold tabular-nums" style={{ color: accent }}>
+            {fmt(value)}
+            {unit}
+          </span>
+          <span className="text-[11px] text-[#9AA4B5] tabular-nums">
+            목표 {fmt(rangeMin)}~{fmt(rangeMax)}
+            {unit}
+          </span>
+        </div>
+      </div>
+      <div className="relative h-2.5 rounded-full bg-[#EEF0F4] overflow-hidden">
+        <div
+          className="absolute inset-y-0 bg-[#CFEBE5]"
+          style={{ left: `${pct(rangeMin)}%`, width: `${Math.max(0, pct(rangeMax) - pct(rangeMin))}%` }}
+        />
+        <div className="absolute inset-y-0 w-px bg-[#101826]/15" style={{ left: `${pct(rangeMin)}%` }} />
+        <div className="absolute inset-y-0 w-px bg-[#101826]/15" style={{ left: `${pct(rangeMax)}%` }} />
+        <div
+          className="absolute inset-y-0 left-0 rounded-full"
+          style={{ width: `${pct(value)}%`, backgroundColor: accent }}
+        />
+      </div>
     </div>
   );
 }

@@ -18,6 +18,14 @@ export function fmtInt(n: number | null | undefined): string {
   return Math.round(n).toLocaleString("ko-KR");
 }
 
+// 소수점 시간(예: 9.083333...)을 "9시간 5분" 형태로 변환
+export function fmtHoursMinutes(hoursDecimal: number): string {
+  const totalMinutes = Math.max(0, Math.round(hoursDecimal * 60));
+  const h = Math.floor(totalMinutes / 60);
+  const m = totalMinutes % 60;
+  return `${h}시간 ${m}분`;
+}
+
 export function todaySoFar(hourlyRows: HourlyRow[]): Stats {
   return sumRows(hourlyRows);
 }
