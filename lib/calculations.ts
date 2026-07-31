@@ -45,59 +45,22 @@ export function currentSeoulHourFraction(): number {
   return hour + minute / 60;
 }
 
-export interface MediaDelta {
-  media: string;
-  line: string;
-  imps: number;
-  view: number;
-  cclick: number;
-  spend: number;
-  isFirstSnapshot: boolean; // 이 매체+라인이 오늘 처음 새로된 경우 (이전 대비 증분을 못 구한 경우, 누적 치 전체가 그대로 오늘 값으로 잡힘)
+// 매체 리포트는 엑셀 파일 한 장이 "그날 하루치 실적"이므로(누적치 아님), 오늘 실적은
+// 그냥 오늘 날짜로 업로드된 행들을 그대로 모으면 된다 (전날 값을 빼는 등의 보정 불필요).
+export function todayRowsOnly(allRows: MediaRow[], today: string): MediaRow[] {
+  return allRows.filter((r) => r.report_date === today);
 }
 
-// 매체 리포트는 "캠페인 시작부터 지금까지의 누적 치"이므로, 오늘의 실제 실적은
-// 오늘 스냅샷에서 가장 최근 이전 날짜 스냅샷을 빼서 구한다 (일별 델타).
-// 이렇게 하면 별도의 시간별 리포트 업로드 없이도 오늘 실적을 정확히 계산할 수 있다.
-export function computeMediaDeltasToday(allRows: MediaRow[], today: string): MediaDelta[] {
-  const groups = new Map<string, MediaRow[]>();
-  for (const r of allRows) {
-    const key = `${r.media}__${r.line_label || "전체"}`;
-    if (!groups.has(key)) groups.set(key, []);
-    groups.get(key)!.push(r);
-  }
-  const deltas: MediaDelta[] = [];
-  for (const rows of groups.values()) {
-    const sorted = [...rows].sort((a, b) => (a.report_date < b.report_date ? 1 : -1)); // 최신순
-    const latest = sorted[0];
-    if (latest.report_date !== today) continue; // 오늘 업데이트가 없는 매체는 오늘 실적 0으로 취급
-    const prev = sorted[1];
-    deltas.push({
-      media: latest.media,
-      line: latest.line_label || "전체",
-      imps: Math.max(0, latest.imps - (prev?.imps ?? 0)),
-      view: Math.max(0, latest.view - (prev?.view ?? 0)),
-      cclick: Math.max(0, latest.cclick - (prev?.cclick ?? 0)),
-      spend: Math.max(0, latest.spend - (prev?.spend ?? 0)),
-      isFirstSnapshot: !prev,
-    });
-  }
-  return deltas;
-}
-
-export function sumDeltas(deltas: MediaDelta[]): Stats {
-  return sumRows(deltas);
-}
-
-// 델타치를 표준 라인 카테고리(데스크탑/모바일app/모바일web)로 묶어서, 오늘 실적 라인별 성과를 만든다 (추정 수치)
-export function deltasByLine(deltas: MediaDelta[]): LineEstimate[] {
+// 오늘 업로드된 매체 행들을 표준 라인 카테고리(데스크탑/모바일app/모바일web)로 묶어서, 라인별 오늘 실적을 만든다
+export function rowsByLine(rows: { line_label: string; imps: number; view: number; cclick: number; spend: number }[]): LineEstimate[] {
   const groups = new Map<string, { spend: number; imps: number; view: number; cclick: number }>();
-  for (const d of deltas) {
-    const key = canonicalLine(d.line);
+  for (const r of rows) {
+    const key = canonicalLine(r.line_label);
     const g = groups.get(key) || { spend: 0, imps: 0, view: 0, cclick: 0 };
-    g.spend += d.spend;
-    g.imps += d.imps;
-    g.view += d.view;
-    g.cclick += d.cclick;
+    g.spend += r.spend;
+    g.imps += r.imps;
+    g.view += r.view;
+    g.cclick += r.cclick;
     groups.set(key, g);
   }
   return [...groups.entries()]
@@ -109,7 +72,6 @@ export function deltasByLine(deltas: MediaDelta[]): LineEstimate[] {
       cclick: g.cclick,
       vtr: g.imps ? (g.view / g.imps) * 100 : 0,
       ctr: g.imps ? (g.cclick / g.imps) * 100 : 0,
-      maxDays: 1,
     }))
     .sort((a, b) => b.spend - a.spend);
 }
@@ -370,40 +332,4 @@ export interface LineEstimate {
   cclick: number;
   vtr: number;
   ctr: number;
-  maxDays: number; // 이 라인에 섞여 있는 매체 중 가장 많은 날짜 수 (1보다 크면 여러 날짜가 누적된 평균)
-}
-
-export function estimateTodayByLine(profiles: MediaProfile[], todaySpend: number): LineEstimate[] {
-  const lineGroups = new Map<string, { spend: number; imps: number; view: number; cclick: number; maxDays: number }>();
-  for (const p of profiles) {
-    const key = canonicalLine(p.line);
-    const g = lineGroups.get(key) || { spend: 0, imps: 0, view: 0, cclick: 0, maxDays: 0 };
-    g.spend += p.spend;
-    g.imps += p.imps;
-    g.view += p.view;
-    g.cclick += p.cclick;
-    g.maxDays = Math.max(g.maxDays, p.days);
-    lineGroups.set(key, g);
-  }
-  const totalSpend = [...lineGroups.values()].reduce((s, g) => s + g.spend, 0);
-  if (totalSpend <= 0) return [];
-  const results: LineEstimate[] = [];
-  for (const [line, g] of lineGroups) {
-    const share = g.spend / totalSpend;
-    const estSpend = share * todaySpend;
-    const estImps = g.spend > 0 ? estSpend * (g.imps / g.spend) : 0;
-    const estView = g.imps > 0 ? estImps * (g.view / g.imps) : 0;
-    const estClick = g.imps > 0 ? estImps * (g.cclick / g.imps) : 0;
-    results.push({
-      line,
-      spend: estSpend,
-      imps: estImps,
-      view: estView,
-      cclick: estClick,
-      vtr: estImps ? (estView / estImps) * 100 : 0,
-      ctr: estImps ? (estClick / estImps) * 100 : 0,
-      maxDays: g.maxDays,
-    });
-  }
-  return results.sort((a, b) => b.spend - a.spend);
 }

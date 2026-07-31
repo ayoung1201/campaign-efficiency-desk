@@ -9,15 +9,15 @@ import {
   buildMediaProfiles,
   buildRecommendations,
   canonicalLine,
-  computeMediaDeltasToday,
   currentSeoulHourFraction,
-  deltasByLine,
   fmt,
   fmtInt,
   inRange,
   profileMetrics,
   projectFinal,
-  sumDeltas,
+  rowsByLine,
+  sumRows,
+  todayRowsOnly,
   todayStr,
 } from "../lib/calculations";
 import Gauge from "../components/Gauge";
@@ -329,12 +329,11 @@ export default function Home() {
   const libraryByKey = useMemo(() => new Map(libraryProfiles.map((l) => [l.id, l])), [libraryProfiles]);
   const librarySources = useMemo(() => [...new Set(library.map((r) => r.source || "미상"))], [library]);
 
-  // 매체 리포트는 캠페인 누적 치이므로, 오늘 스냅샷 - 이전 스냅샷 = 오늘 실적 수치를 계산한다 (시간별 리포트 불필요)
+  // 매체 리포트 엑셀 한 장 = 그날 하루치 실적이므로, 오늘 날짜로 업로드된 행만 그대로 모으면 오늘 실적이 된다
   const todayDate = todayStr();
-  const todayDeltas = useMemo(() => computeMediaDeltasToday(allMediaRows, todayDate), [allMediaRows, todayDate]);
-  const hasTodaySnapshot = todayDeltas.length > 0;
-  const today = useMemo(() => sumDeltas(todayDeltas), [todayDeltas]);
-  const firstDayMediaCount = useMemo(() => todayDeltas.filter((d) => d.isFirstSnapshot).length, [todayDeltas]);
+  const todayMediaRows = useMemo(() => todayRowsOnly(allMediaRows, todayDate), [allMediaRows, todayDate]);
+  const hasTodaySnapshot = todayMediaRows.length > 0;
+  const today = useMemo(() => sumRows(todayMediaRows), [todayMediaRows]);
 
   const elapsed = currentSeoulHourFraction();
   const elapsedDisplay = Math.floor(elapsed);
@@ -359,17 +358,17 @@ export default function Home() {
   const statusMet = inRange(currentProjection.vtr, vtrRange) && inRange(currentProjection.ctr, ctrRange);
   const todayStatusMet = inRange(today.vtr, vtrRange) && inRange(today.ctr, ctrRange);
 
-  // 오늘 실적 라인별 성과 (추정 수치 - 매체 리포트 날짜별 델타로 계산된 추정치)
-  const lineEstimates = useMemo(() => deltasByLine(todayDeltas), [todayDeltas]);
+  // 오늘 실적 라인별 성과 (표준 라인 카테고리로 묶은 실측치)
+  const lineEstimates = useMemo(() => rowsByLine(todayMediaRows), [todayMediaRows]);
 
   // 라인을 선택하면 게이지도 그 라인만의 실적으로 보여준다 (전체는 데스크탑_2039/데스크탑_5059처럼
   // 표준 카테고리가 같은 서로 다른 실제 라인이 섞여 있을 수 있으므로, canonicalLine으로 묶지 않고
-  // 정확히 선택된 라인명(uploadLine)과 일치하는 델타만 골라서 합산한다. "전체"면 캠페인 전체 오늘 값.
+  // 정확히 선택된 라인명(uploadLine)과 일치하는 행만 골라서 합산한다. "전체"면 캠페인 전체 오늘 값.
   const gaugeStats = useMemo(() => {
     if (uploadLine === "전체") return today;
-    const filtered = todayDeltas.filter((d) => d.line === uploadLine);
-    return sumDeltas(filtered); // 해당 라인이 아직 업로드되지 않았으면 0으로 표시 (전체 합계로 대체하지 않음)
-  }, [uploadLine, todayDeltas]);
+    const filtered = todayMediaRows.filter((r) => (r.line_label || "전체") === uploadLine);
+    return sumRows(filtered); // 해당 라인이 아직 업로드되지 않았으면 0으로 표시 (전체 합계로 대체하지 않음)
+  }, [uploadLine, todayMediaRows]);
   const gaugeInRange = inRange(gaugeStats.vtr, vtrRange) && inRange(gaugeStats.ctr, ctrRange);
   const hasProfiles = profiles.length > 0;
   const hasData = hasProfiles && hasTodaySnapshot;
@@ -682,7 +681,7 @@ export default function Home() {
               </div>
             ) : !hasTodaySnapshot ? (
               <div className={`text-center text-[#8792A6] text-[13px] py-16 ${panel} border-dashed`}>
-                오늘({todayDate}) 매체 리포트가 아직 없어요. 오늘 데이터를 업로드하면 이전 대비 증분으로 오늘 실적을 계산해요.
+                오늘({todayDate}) 매체 리포트가 아직 없어요. 오늘자 리포트를 업로드해주세요.
               </div>
             ) : (
               <div className="grid grid-cols-1 xl:grid-cols-[420px_1fr] gap-4 items-start">
@@ -709,11 +708,6 @@ export default function Home() {
                         <div className="font-bold text-[16px] font-mono tabular-nums">{fmtInt(gaugeStats.spend)}원</div>
                       </div>
                     </div>
-                    {firstDayMediaCount > 0 && (
-                      <div className="text-[11px] text-[#B8842B] bg-[#FBF3E2] rounded px-2 py-1 mt-3 text-center">
-                        오늘 처음 업로드된 매체 {firstDayMediaCount}개는 이전 기준값이 없어서 누적 치 전체가 오늘 값으로 잡혔어요. 내일부터는 정확한 증분으로 계산돼요.
-                      </div>
-                    )}
                   </div>
 
                   <div className={`${panel} p-4`}>
@@ -764,14 +758,7 @@ export default function Home() {
                               })
                               .map((le) => (
                               <tr key={le.line} className="border-t border-[#EEF0F4] hover:bg-[#FAFBFC]">
-                                <td className="py-2 px-3 font-medium">
-                                  {le.line}
-                                  {le.maxDays > 1 && (
-                                    <span className="ml-1.5 text-[10.5px] font-semibold text-[#B8842B] bg-[#FBF3E2] px-1.5 py-0.5 rounded-full align-middle">
-                                      {le.maxDays}일치 평균
-                                    </span>
-                                  )}
-                                </td>
+                                <td className="py-2 px-3 font-medium">{le.line}</td>
                                 <td className="text-right py-2 px-3 font-mono tabular-nums">{fmtInt(le.spend)}원</td>
                                 <td className={`text-right py-2 px-3 font-mono tabular-nums ${inRange(le.vtr, vtrRange) ? "text-[#0E8074]" : "text-[#C1442B]"}`}>{fmt(le.vtr)}%</td>
                                 <td className={`text-right py-2 px-3 font-mono tabular-nums ${inRange(le.ctr, ctrRange) ? "text-[#0E8074]" : "text-[#C1442B]"}`}>{fmt(le.ctr)}%</td>
