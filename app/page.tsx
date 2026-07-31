@@ -315,8 +315,8 @@ export default function Home() {
   const gaugeStats = useMemo(() => {
     if (uploadLine === "전체") return today;
     const filtered = todayDeltas.filter((d) => d.line === uploadLine);
-    return filtered.length > 0 ? sumDeltas(filtered) : today;
-  }, [uploadLine, today, todayDeltas]);
+    return sumDeltas(filtered); // 해당 라인이 아직 업로드되지 않았으면 0으로 표시 (전체 합계로 대체하지 않음)
+  }, [uploadLine, todayDeltas]);
   const gaugeInRange = inRange(gaugeStats.vtr, vtrRange) && inRange(gaugeStats.ctr, ctrRange);
   const hasProfiles = profiles.length > 0;
   const hasData = hasProfiles && hasTodaySnapshot;
