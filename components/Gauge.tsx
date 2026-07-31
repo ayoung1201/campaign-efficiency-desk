@@ -51,11 +51,11 @@ export default function Gauge({ label, value, rangeMin, rangeMax, unit = "%", ma
         <path d={arcPath(0, pct)} fill="none" stroke={met ? goodColor : riskColor} strokeWidth="4" strokeLinecap="round" />
         {/* 현재 값 마커 (동그라미) */}
         <circle cx={vx} cy={vy} r="7" fill={met ? goodColor : riskColor} stroke="white" strokeWidth="2.5" />
-        <text x={cx} y={cy - 6} textAnchor="middle" fontSize="26" fontWeight="700" fontFamily="'IBM Plex Mono', ui-monospace, monospace" fill="#101826">
+        <text x={cx} y={cy - 6} textAnchor="middle" fontSize="26" fontWeight="700" fontFamily="'Pretendard Variable', ui-sans-serif, system-ui, sans-serif" fill="#101826">
           {fmt(value)}
           {unit}
         </text>
-        <text x={cx} y={cy + 14} textAnchor="middle" fontSize="11" fontFamily="'IBM Plex Mono', ui-monospace, monospace" fill="#8792A6">
+        <text x={cx} y={cy + 14} textAnchor="middle" fontSize="11" fontFamily="'Pretendard Variable', ui-sans-serif, system-ui, sans-serif" fill="#8792A6">
           목표 {fmt(rangeMin)}~{fmt(rangeMax)}
           {unit}
         </text>
