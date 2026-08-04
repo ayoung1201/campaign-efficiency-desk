@@ -190,12 +190,14 @@ export default function Home() {
 
   const openBannedMediaManager = () => {
     if (!active) return;
-    setEditBannedMedia(active.banned_media && active.banned_media.length > 0 ? [...active.banned_media] : [""]);
+    setEditBannedMedia(active.banned_media ? [...active.banned_media] : []);
     setShowBannedMediaManager(true);
   };
-  const updateEditBannedMedia = (i: number, value: string) => setEditBannedMedia((prev) => prev.map((l, idx) => (idx === i ? value : l)));
-  const addEditBannedMediaField = () => setEditBannedMedia((prev) => [...prev, ""]);
-  const removeEditBannedMediaField = (i: number) => setEditBannedMedia((prev) => prev.filter((_, idx) => idx !== i));
+  const toggleEditBannedMedia = (media: string) =>
+    setEditBannedMedia((prev) => (prev.includes(media) ? prev.filter((m) => m !== media) : [...prev, media]));
+  const removeEditBannedMedia = (media: string) => setEditBannedMedia((prev) => prev.filter((m) => m !== media));
+  const addCustomBannedMedia = (media: string) =>
+    setEditBannedMedia((prev) => (prev.includes(media) ? prev : [...prev, media]));
   const saveBannedMedia = async () => {
     if (!active) return;
     const finalBanned = editBannedMedia.map((l) => l.trim()).filter(Boolean);
@@ -356,6 +358,14 @@ export default function Home() {
   const libraryProfiles = useMemo(() => buildLibraryProfiles(library), [library]);
   const libraryByKey = useMemo(() => new Map(libraryProfiles.map((l) => [l.id, l])), [libraryProfiles]);
   const librarySources = useMemo(() => [...new Set(library.map((r) => r.source || "미상"))], [library]);
+
+  // 노출 불가 매체를 검색/선택할 때 보여줄 후보 목록 - 이 캠페인에 실제로 올라온 매체 + 라이브러리 전체 매체
+  const availableMediaForBan = useMemo(() => {
+    const names = new Set<string>();
+    for (const p of profiles) names.add(p.media);
+    for (const l of libraryProfiles) names.add(l.media);
+    return [...names].sort((a, b) => a.localeCompare(b, "ko"));
+  }, [profiles, libraryProfiles]);
 
   // 매체 리포트 엑셀 한 장 = 그날 하루치 실적이므로, 오늘 날짜로 업로드된 행만 그대로 모으면 오늘 실적이 된다
   const todayDate = todayStr();
@@ -530,10 +540,11 @@ export default function Home() {
               {showBannedMediaManager && (
                 <BannedMediaModal
                   campaignName={active.name}
-                  editBannedMedia={editBannedMedia}
-                  updateEditBannedMedia={updateEditBannedMedia}
-                  addEditBannedMediaField={addEditBannedMediaField}
-                  removeEditBannedMediaField={removeEditBannedMediaField}
+                  availableMedia={availableMediaForBan}
+                  selected={editBannedMedia}
+                  onToggle={toggleEditBannedMedia}
+                  onRemove={removeEditBannedMedia}
+                  onAddCustom={addCustomBannedMedia}
                   onSave={saveBannedMedia}
                   onCancel={() => setShowBannedMediaManager(false)}
                 />
