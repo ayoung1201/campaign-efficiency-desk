@@ -17,7 +17,6 @@ interface BatchUploadModalProps {
 }
 
 export default function BatchUploadModal({ files, assignments, lineOptions, onChangeAssignment, onConfirm, onCancel }: BatchUploadModalProps) {
-  // 브라우저가 파일 선택 순서를 보장해주지 않아서, 같은 라인이 중복 지정되면 헷갈리기 쉽다 - 미리 표시해준다
   const usedCounts = new Map<string, number>();
   for (const a of assignments) {
     if (!a) continue;
@@ -30,9 +29,6 @@ export default function BatchUploadModal({ files, assignments, lineOptions, onCh
       <SectionTitle icon={Files} color={ACCENT}>
         여러 파일 라인 매칭 확인
       </SectionTitle>
-      <div className="text-[11.5px] text-[#8792A6] -mt-2 mb-3">
-        브라우저 파일 선택 창은 클릭한 순서를 그대로 보장해주지 않아요. 파일마다 어느 라인인지 직접 확인하고 필요하면 바꿔주세요.
-      </div>
 
       <div className="flex flex-col gap-1.5 mb-3">
         {files.map((f, i) => {

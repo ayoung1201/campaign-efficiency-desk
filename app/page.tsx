@@ -234,7 +234,8 @@ export default function Home() {
     }
     setError("");
     setBatchFiles(files);
-    setBatchAssignments(files.map((_, i) => targetLines[i] ?? ""));
+    const reversedLines = [...targetLines].reverse();
+    setBatchAssignments(files.map((_, i) => reversedLines[i] ?? ""));
   };
 
   const cancelBatchUpload = () => {

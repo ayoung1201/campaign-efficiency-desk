@@ -46,7 +46,7 @@ export default function UploadToolbar({
         </div>
 
         <div className={toolbarGroup}>
-          <button onClick={() => batchFileRef.current?.click()} className={btn} title="여러 파일을 한번에 선택하면, 파일마다 어느 라인인지 직접 지정하는 확인창이 떠요.">
+          <button onClick={() => batchFileRef.current?.click()} className={btn}>
             <Files size={14} /> 여러 파일 한번에 업로드
           </button>
           <input ref={batchFileRef} type="file" accept=".xlsx,.xls,.csv" multiple onChange={onBatchFilesSelected} className="hidden" />
@@ -55,8 +55,6 @@ export default function UploadToolbar({
 
       <div className="text-[11.5px] text-[#8792A6] mb-4 -mt-2">
         라인 선택은 <b>① 업로드할 파일이 어느 라인 것인지</b>, <b>② 오른쪽 매체 표를 어느 라인만 필터해서 볼지</b> 둘 다에 사용돼요. &quot;전체&quot;를 선택하면 모든 라인을 라인별로 묶어서 보여줘요.
-        <br />
-        <b>여러 파일 한번에 업로드</b>는 파일을 고르면 각 파일에 라인을 직접 지정하는 확인창이 뜹니다 (브라우저가 파일 선택 순서를 보장해주지 않아서, 자동 매칭 대신 직접 확인하도록 바꿨어요).
       </div>
     </>
   );
