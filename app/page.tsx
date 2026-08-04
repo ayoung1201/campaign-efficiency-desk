@@ -23,8 +23,10 @@ import NewCampaignForm from "../components/NewCampaignForm";
 import LineManagerModal from "../components/LineManagerModal";
 import LibraryPanel from "../components/LibraryPanel";
 import UploadToolbar from "../components/UploadToolbar";
+import BatchUploadModal from "../components/BatchUploadModal";
 import CampaignHeader from "../components/CampaignHeader";
 import StatusCard from "../components/StatusCard";
+import ProjectionCard from "../components/ProjectionCard";
 import BudgetCard from "../components/BudgetCard";
 import LineBreakdownCard from "../components/LineBreakdownCard";
 import RecommendationsCard from "../components/RecommendationsCard";
@@ -216,35 +218,41 @@ export default function Home() {
     }
   };
 
-  // 여러 파일을 한 번에 선택하면, 선택한 순서 그대로 이 캠페인의 라인 구성 순서(전체 제외)에 매칭해서 업로드한다.
-  // 예: 자이스 라인이 [데스크탑_2039, 데스크탑_5059, 모바일app_2039, ...] 순이면 첫 파일 -> 데스크탑_2039, 둘째 파일 -> 데스크탑_5059 ...
-  const handleBatchMediaUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  // 브라우저 파일 선택창은 사용자가 클릭한 순서를 보장해주지 않는다(보통 탐색기 정렬 순서로 옴).
+  // 그래서 파일을 고르자마자 바로 업로드하지 않고, 각 파일에 라인을 직접 지정하는 확인 모달을 띄운다.
+  const [batchFiles, setBatchFiles] = useState<File[] | null>(null);
+  const [batchAssignments, setBatchAssignments] = useState<string[]>([]);
+
+  const onBatchFilesSelected = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
     e.target.value = "";
     if (!files.length || !active) return;
-
     const targetLines = (active.lines || []).filter((l) => l && l !== "전체");
     if (targetLines.length === 0) {
       setError("이 캠페인에 등록된 라인이 없어요. '라인 관리'에서 라인을 먼저 등록해주세요.");
       return;
     }
+    setError("");
+    setBatchFiles(files);
+    setBatchAssignments(files.map((_, i) => targetLines[i] ?? ""));
+  };
 
-    const count = Math.min(files.length, targetLines.length);
-    if (files.length !== targetLines.length) {
-      setError(
-        `파일 ${files.length}개 중 ${count}개만 처리했어요. 이 캠페인의 라인 순서는 "${targetLines.join(", ")}" (${targetLines.length}개)예요. 라인 개수만큼 파일을 선택해주세요.`
-      );
-    } else {
-      setError("");
-    }
+  const cancelBatchUpload = () => {
+    setBatchFiles(null);
+    setBatchAssignments([]);
+  };
 
+  const confirmBatchUpload = async () => {
+    if (!batchFiles || !active) return;
     const date = todayStr();
+    setError("");
     try {
-      for (let i = 0; i < count; i++) {
-        const line = targetLines[i];
-        const parsed = await parseExcelFile(files[i]);
+      for (let i = 0; i < batchFiles.length; i++) {
+        const line = batchAssignments[i];
+        if (!line) continue; // 라인을 지정하지 않은 파일은 건너뜀
+        const parsed = await parseExcelFile(batchFiles[i]);
         if (!parsed) {
-          setError((prev) => (prev ? prev + ` / "${files[i].name}"(${line}) 인식 실패` : `"${files[i].name}"(${line}) 파일을 인식하지 못했어요.`));
+          setError((prev) => (prev ? prev + ` / "${batchFiles[i].name}"(${line}) 인식 실패` : `"${batchFiles[i].name}"(${line}) 파일을 인식하지 못했어요.`));
           continue;
         }
         await supabase.from("media_reports").delete().eq("campaign_id", active.id).eq("line_label", line).eq("report_date", date);
@@ -265,6 +273,9 @@ export default function Home() {
       await loadCampaignData(active.id);
     } catch {
       setError("여러 파일을 읽는 중 문제가 발생했어요.");
+    } finally {
+      setBatchFiles(null);
+      setBatchAssignments([]);
     }
   };
 
@@ -460,8 +471,19 @@ export default function Home() {
                 onMediaUpload={handleMediaUpload}
                 onOpenLineManager={openLineManager}
                 batchFileRef={batchFileRef}
-                onBatchMediaUpload={handleBatchMediaUpload}
+                onBatchFilesSelected={onBatchFilesSelected}
               />
+
+              {batchFiles && (
+                <BatchUploadModal
+                  files={batchFiles}
+                  assignments={batchAssignments}
+                  lineOptions={lineOptions.slice(1)}
+                  onChangeAssignment={(i, line) => setBatchAssignments((prev) => prev.map((a, idx) => (idx === i ? line : a)))}
+                  onConfirm={confirmBatchUpload}
+                  onCancel={cancelBatchUpload}
+                />
+              )}
 
               {showLineManager && (
                 <LineManagerModal
@@ -495,6 +517,15 @@ export default function Home() {
                       elapsedDisplay={elapsedDisplay}
                       gaugeStats={gaugeStats}
                       gaugeInRange={gaugeInRange}
+                      targetVTRMin={targetVTRMin}
+                      targetVTRMax={targetVTRMax}
+                      targetCTRMin={targetCTRMin}
+                      targetCTRMax={targetCTRMax}
+                    />
+
+                    <ProjectionCard
+                      currentProjection={currentProjection}
+                      statusMet={statusMet}
                       targetVTRMin={targetVTRMin}
                       targetVTRMax={targetVTRMax}
                       targetCTRMin={targetCTRMin}

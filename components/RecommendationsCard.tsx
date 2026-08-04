@@ -49,9 +49,17 @@ export default function RecommendationsCard({ recommendations, statusMet, librar
                       </span>{" "}
                       <span className={`font-bold ${isCut ? "text-[#C1442B]" : "text-[#0E8074]"}`}>{a.action}</span>
                       {isNewCandidate ? (
-                        <span className="text-[#8792A6]"> · 신규 매체 · 라이브러리 평균 {fmt(lib?.vtr ?? 0)}% 기준 추정</span>
+                        <span className="text-[#8792A6]">
+                          {" "}
+                          · 신규 매체 · 라이브러리 평균 VTR {fmt(lib?.vtr ?? 0)}% · CTR {fmt(lib?.ctr ?? 0)}% 기준 추정
+                        </span>
                       ) : (
-                        lib && <span className="text-[#8792A6]"> · 라이브러리 평균 {fmt(lib.vtr)}% (현재 {fmt(cur.vtr)}%)</span>
+                        lib && (
+                          <span className="text-[#8792A6]">
+                            {" "}
+                            · 라이브러리 평균 VTR {fmt(lib.vtr)}% (현재 {fmt(cur.vtr)}%) · CTR {fmt(lib.ctr)}% (현재 {fmt(cur.ctr)}%)
+                          </span>
+                        )
                       )}
                     </div>
                   );
