@@ -7,13 +7,18 @@ function normalize(s: unknown): string {
   return String(s ?? "").trim().toLowerCase().replace(/\s+/g, "");
 }
 
-// "비과금포함" 컬럼(예: "View(비과금포함)")은 항상 피하고, 순수 지표 컬럼을 우선 찾는다.
-// 매칭되는 게 그 변형 컬럼뿐이면(즉 순수 컬럼이 아예 없으면) 마지막에 그거라도 사용한다.
-function findColIndex(headers: string[], keywords: string[]): number {
+// "(비과금포함)" 컬럼(예: "View(비과금포함)")은 플랫폼이 실제 VTR·CTR을 계산할 때 쓰는 전체 카운트다
+// (과금 제외분까지 포함한 진짜 실적치). "View"/"C.Click" 같은 순수 컬럼은 과금 대상만 집계한 별도 수치라
+// 플랫폼이 보여주는 VTR·CTR과 어긋난다. 그래서 preferKeywords로 "(비과금포함)" 변형을 우선 찾는다.
+function findColIndex(headers: string[], keywords: string[], preferKeywords?: string[]): number {
   const norm = headers.map(normalize);
-  for (const k of keywords) {
-    const idx = norm.findIndex((h) => h.includes(normalize(k)) && !h.includes(normalize("비과금포함")));
-    if (idx !== -1) return idx;
+  if (preferKeywords) {
+    for (const k of keywords) {
+      for (const p of preferKeywords) {
+        const idx = norm.findIndex((h) => h.includes(normalize(k)) && h.includes(normalize(p)));
+        if (idx !== -1) return idx;
+      }
+    }
   }
   for (const k of keywords) {
     const idx = norm.findIndex((h) => h.includes(normalize(k)));
@@ -36,8 +41,8 @@ function findHeaderRowAndCols(table: unknown[][]) {
     const labelIdx = findColIndex(headers, ["매체", "media", "시간"]);
     const impsIdx = findColIndex(headers, ["imps"]);
     if (labelIdx !== -1 && impsIdx !== -1) {
-      const viewIdx = findColIndex(headers, ["view"]);
-      const cclickIdx = findColIndex(headers, ["c.click", "cclick"]);
+      const viewIdx = findColIndex(headers, ["view"], ["비과금포함"]);
+      const cclickIdx = findColIndex(headers, ["c.click", "cclick"], ["비과금포함"]);
       const spendIdx = findColIndex(headers, ["소진광고비", "소진 광고비", "소진"]);
       return { headerRow: r, idx: { label: labelIdx, imps: impsIdx, view: viewIdx, cclick: cclickIdx, spend: spendIdx } };
     }
@@ -90,7 +95,7 @@ function findRawHourHeaderAndCols(table: unknown[][]): { headerRow: number; idx:
     const dateIdx = findColIndex(headers, ["날짜"]);
     const impsIdx = findColIndex(headers, ["imp"]);
     if (mediaIdx === -1 || spendIdx === -1 || dateIdx === -1 || impsIdx === -1) continue;
-    const viewIdx = findColIndex(headers, ["view"]);
+    const viewIdx = findColIndex(headers, ["view"], ["비과금포함"]);
     const clickIdx = findColIndex(headers, ["click"]);
     return { headerRow: r, idx: { date: dateIdx, media: mediaIdx, imps: impsIdx, view: viewIdx, click: clickIdx, spend: spendIdx } };
   }
@@ -184,8 +189,8 @@ function findMasterHeaderRowAndCols(table: unknown[][]) {
     const lineIdx = findColIndex(headers, ["채널", "라인", "line"]);
     const impsIdx = findColIndex(headers, ["imps", "imp"]);
     if (mediaIdx !== -1 && lineIdx !== -1 && impsIdx !== -1) {
-      const viewIdx = findColIndex(headers, ["view"]);
-      const cclickIdx = findColIndex(headers, ["c.click", "cclick", "click"]);
+      const viewIdx = findColIndex(headers, ["view"], ["비과금포함"]);
+      const cclickIdx = findColIndex(headers, ["c.click", "cclick", "click"], ["비과금포함"]);
       const spendIdx = findColIndex(headers, ["소진광고비", "소진 광고비", "소진"]);
       return { headerRow: r, idx: { media: mediaIdx, line: lineIdx, imps: impsIdx, view: viewIdx, cclick: cclickIdx, spend: spendIdx } };
     }
