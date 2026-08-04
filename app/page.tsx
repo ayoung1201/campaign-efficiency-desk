@@ -108,6 +108,10 @@ export default function Home() {
   useEffect(() => {
     if (activeId) loadCampaignData(activeId);
     setUploadLine("전체");
+    // 다른 캠페인으로 넘어가면 편집 중이던 라인/노출 불가 매체 창은 닫는다 (열어둔 채로 두면
+    // 이전 캠페인 기준으로 수정하던 내용이 새 캠페인 화면에 그대로 겹쳐 보인다)
+    setShowLineManager(false);
+    setShowBannedMediaManager(false);
   }, [activeId]);
 
   const updateNewLine = (i: number, value: string) => setNewLines((prev) => prev.map((l, idx) => (idx === i ? value : l)));
