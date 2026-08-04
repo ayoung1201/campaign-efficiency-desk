@@ -231,13 +231,15 @@ function buildAddCandidates(
   profiles: MediaProfile[],
   includedIds: Set<string>,
   libraryProfiles: LibraryProfile[],
-  remainingBudget: number
+  remainingBudget: number,
+  bannedMedia: Set<string>
 ): MediaProfile[] {
   const existingKeys = new Set(profiles.map((p) => `${p.media}__${canonicalLine(p.line)}`));
   const activeLines = new Set(profiles.map((p) => canonicalLine(p.line)));
 
   const candidates: MediaProfile[] = [];
   for (const lp of libraryProfiles) {
+    if (bannedMedia.has(lp.media)) continue; // 이 캠페인에서 노출 금지된 매체는 추가 후보에서 아예 제외
     if (!activeLines.has(lp.line)) continue;
     if (lp.imps <= 0 || lp.spend <= 0) continue;
     const key = `${lp.media}__${lp.line}`;
@@ -340,13 +342,14 @@ export function buildRecommendations(
   currentProjection: Stats,
   vtrRange: Range,
   ctrRange: Range,
-  libraryProfiles: LibraryProfile[] = []
+  libraryProfiles: LibraryProfile[] = [],
+  bannedMedia: Set<string> = new Set()
 ): RecommendationBundle[] {
   const gapVTR = rangeGap(currentProjection.vtr, vtrRange);
   const gapCTR = rangeGap(currentProjection.ctr, ctrRange);
   if (gapVTR === 0 && gapCTR === 0) return [];
 
-  const addCandidates = buildAddCandidates(profiles, includedIds, libraryProfiles, remainingBudget);
+  const addCandidates = buildAddCandidates(profiles, includedIds, libraryProfiles, remainingBudget, bannedMedia);
   const allProfiles = [...profiles, ...addCandidates];
   const eligible = allProfiles.filter((m) => !(m.spend === 0 && m.imps === 0));
   const bundleKey = (b: RecommendationBundle) =>

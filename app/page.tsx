@@ -21,6 +21,7 @@ import { CANONICAL_ORDER } from "../lib/constants";
 import Sidebar from "../components/Sidebar";
 import NewCampaignForm from "../components/NewCampaignForm";
 import LineManagerModal from "../components/LineManagerModal";
+import BannedMediaModal from "../components/BannedMediaModal";
 import LibraryPanel from "../components/LibraryPanel";
 import UploadToolbar from "../components/UploadToolbar";
 import BatchUploadModal from "../components/BatchUploadModal";
@@ -50,10 +51,13 @@ export default function Home() {
 
   const [showNewForm, setShowNewForm] = useState(false);
   const [newName, setNewName] = useState("");
-  const [newLines, setNewLines] = useState<string[]>(["", "", ""]);
+  const [newLines, setNewLines] = useState<string[]>([...CANONICAL_ORDER]);
 
   const [showLineManager, setShowLineManager] = useState(false);
   const [editLines, setEditLines] = useState<string[]>([]);
+
+  const [showBannedMediaManager, setShowBannedMediaManager] = useState(false);
+  const [editBannedMedia, setEditBannedMedia] = useState<string[]>([]);
 
   const [library, setLibrary] = useState<MediaLibraryRow[]>([]);
   const [showLibraryPanel, setShowLibraryPanel] = useState(false);
@@ -124,7 +128,7 @@ export default function Home() {
       return;
     }
     setNewName("");
-    setNewLines(["", "", ""]);
+    setNewLines([...CANONICAL_ORDER]);
     setShowNewForm(false);
     await loadCampaigns();
     if (data) setActiveId(data.id);
@@ -182,6 +186,26 @@ export default function Home() {
     setCampaigns((prev) => prev.map((c) => (c.id === active.id ? { ...c, lines: finalLines } : c)));
     setUploadLine("전체");
     setShowLineManager(false);
+  };
+
+  const openBannedMediaManager = () => {
+    if (!active) return;
+    setEditBannedMedia(active.banned_media && active.banned_media.length > 0 ? [...active.banned_media] : [""]);
+    setShowBannedMediaManager(true);
+  };
+  const updateEditBannedMedia = (i: number, value: string) => setEditBannedMedia((prev) => prev.map((l, idx) => (idx === i ? value : l)));
+  const addEditBannedMediaField = () => setEditBannedMedia((prev) => [...prev, ""]);
+  const removeEditBannedMediaField = (i: number) => setEditBannedMedia((prev) => prev.filter((_, idx) => idx !== i));
+  const saveBannedMedia = async () => {
+    if (!active) return;
+    const finalBanned = editBannedMedia.map((l) => l.trim()).filter(Boolean);
+    const { error } = await supabase.from("campaigns").update({ banned_media: finalBanned }).eq("id", active.id);
+    if (error) {
+      setError("노출 불가 매체 저장 실패: " + error.message);
+      return;
+    }
+    setCampaigns((prev) => prev.map((c) => (c.id === active.id ? { ...c, banned_media: finalBanned } : c)));
+    setShowBannedMediaManager(false);
   };
 
   const handleMediaUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -349,17 +373,21 @@ export default function Home() {
   const vtrRange = { min: targetVTRMin, max: targetVTRMax };
   const ctrRange = { min: targetCTRMin, max: targetCTRMax };
 
+  // 이 캠페인에서 노출되면 안 되는 매체 목록 - 조정 추천이 이 매체를 "추가" 후보로 절대 제안하지 않도록 걸러내고,
+  // 매체 상세에서도 실적이 있으면 눈에 띄게 경고 표시한다.
+  const bannedMedia = useMemo(() => new Set((active?.banned_media || []).map((m) => m.trim()).filter(Boolean)), [active]);
+
   const currentProjection = useMemo(
     () => projectFinal(today, profiles, includedIds, remainingBudget),
     [today, profiles, includedIds, remainingBudget]
   );
 
   const recommendations = useMemo(
-    () => buildRecommendations(profiles, includedIds, today, remainingBudget, currentProjection, vtrRange, ctrRange, libraryProfiles),
+    () => buildRecommendations(profiles, includedIds, today, remainingBudget, currentProjection, vtrRange, ctrRange, libraryProfiles, bannedMedia),
     // vtrRange/ctrRange는 매 렌더마다 새로 만들어지는 객체라 deps에 넣으면 메모이제이션이 무의미해진다.
     // 실제 값 변화는 이미 targetVTRMin/Max, targetCTRMin/Max로 추적되므로 그것만 deps에 둔다.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [profiles, includedIds, today, remainingBudget, currentProjection, targetVTRMin, targetVTRMax, targetCTRMin, targetCTRMax, libraryProfiles]
+    [profiles, includedIds, today, remainingBudget, currentProjection, targetVTRMin, targetVTRMax, targetCTRMin, targetCTRMax, libraryProfiles, bannedMedia]
   );
 
   const statusMet = inRange(currentProjection.vtr, vtrRange) && inRange(currentProjection.ctr, ctrRange);
@@ -471,6 +499,7 @@ export default function Home() {
                 mediaFileRef={mediaFileRef}
                 onMediaUpload={handleMediaUpload}
                 onOpenLineManager={openLineManager}
+                onOpenBannedMediaManager={openBannedMediaManager}
                 batchFileRef={batchFileRef}
                 onBatchFilesSelected={onBatchFilesSelected}
               />
@@ -495,6 +524,18 @@ export default function Home() {
                   removeEditLineField={removeEditLineField}
                   onSave={saveLines}
                   onCancel={() => setShowLineManager(false)}
+                />
+              )}
+
+              {showBannedMediaManager && (
+                <BannedMediaModal
+                  campaignName={active.name}
+                  editBannedMedia={editBannedMedia}
+                  updateEditBannedMedia={updateEditBannedMedia}
+                  addEditBannedMediaField={addEditBannedMediaField}
+                  removeEditBannedMediaField={removeEditBannedMediaField}
+                  onSave={saveBannedMedia}
+                  onCancel={() => setShowBannedMediaManager(false)}
                 />
               )}
 
@@ -546,7 +587,7 @@ export default function Home() {
                   </div>
 
                   {/* 오른쪽: 매체 상세 - 라인별 카드를 가로로 나란히 배치 */}
-                  <MediaDetailGrid groupedProfiles={groupedProfiles} libraryByKey={libraryByKey} onToggleMedia={toggleMedia} />
+                  <MediaDetailGrid groupedProfiles={groupedProfiles} libraryByKey={libraryByKey} onToggleMedia={toggleMedia} bannedMedia={bannedMedia} />
                 </div>
               )}
             </>

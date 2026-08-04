@@ -3,6 +3,7 @@ export interface Campaign {
   name: string;
   daily_budget: number | null;
   lines: string[]; // 캠페인 등록 시 정의한 라인 목록 (예: ["데스크탑_2039","모바일app_5059",...])
+  banned_media: string[] | null; // 이 캠페인에는 노출되면 안 되는 매체명 목록 (예: ["더줌코리아_캐시워크"])
   created_at: string;
 }
 

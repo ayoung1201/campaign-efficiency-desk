@@ -19,9 +19,10 @@ interface MediaDetailGridProps {
   groupedProfiles: GroupedLine[];
   libraryByKey: Map<string, LibraryProfile>;
   onToggleMedia: (latestRowId: string, nextIncluded: boolean) => void;
+  bannedMedia: Set<string>;
 }
 
-export default function MediaDetailGrid({ groupedProfiles, libraryByKey, onToggleMedia }: MediaDetailGridProps) {
+export default function MediaDetailGrid({ groupedProfiles, libraryByKey, onToggleMedia, bannedMedia }: MediaDetailGridProps) {
   return (
     <div className={`${panel} overflow-hidden`}>
       <div className="px-4 py-3 border-b border-[#E1E5EC]">
@@ -61,12 +62,23 @@ export default function MediaDetailGrid({ groupedProfiles, libraryByKey, onToggl
                     const libKey = `${p.media}__${canonicalLine(p.line)}`;
                     const libMatch = libraryByKey.get(libKey);
                     const lib = libMatch ? profileMetrics(libMatch) : null;
+                    const isBanned = bannedMedia.has(p.media);
                     return (
-                      <tr key={p.id} className={`border-t border-[#EEF0F4] hover:bg-[#FAFBFC] ${p.included ? "" : "opacity-40"}`}>
+                      <tr
+                        key={p.id}
+                        className={`border-t border-[#EEF0F4] hover:bg-[#FAFBFC] ${p.included ? "" : "opacity-40"} ${isBanned ? "bg-[#FBEAE6]" : ""}`}
+                      >
                         <td className="text-center py-1.5 px-2.5">
                           <input type="checkbox" checked={p.included} onChange={() => onToggleMedia(p.latestRowId, !p.included)} className="accent-[#0B1220]" />
                         </td>
-                        <td className="py-1.5 px-2.5 font-medium">{p.media}</td>
+                        <td className="py-1.5 px-2.5 font-medium">
+                          {p.media}
+                          {isBanned && (
+                            <span className="ml-1.5 text-[10px] font-semibold text-[#C1442B] bg-white border border-[#E7C9C2] px-1 py-0.5 rounded align-middle">
+                              노출 불가
+                            </span>
+                          )}
+                        </td>
                         <td className="text-right py-1.5 px-2.5">
                           <div className="tabular-nums font-semibold">{p.imps ? `${fmt(vtr)}%` : "-"}</div>
                           {lib && <div className="tabular-nums text-[10.5px] text-[#9AA4B5]">평균 {fmt(lib.vtr)}%</div>}

@@ -1,7 +1,7 @@
 "use client";
 
 import { RefObject } from "react";
-import { Files, SlidersHorizontal, Upload } from "lucide-react";
+import { Ban, Files, SlidersHorizontal, Upload } from "lucide-react";
 import { btn, input, toolbarGroup } from "./ui";
 
 interface UploadToolbarProps {
@@ -11,6 +11,7 @@ interface UploadToolbarProps {
   mediaFileRef: RefObject<HTMLInputElement | null>;
   onMediaUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onOpenLineManager: () => void;
+  onOpenBannedMediaManager: () => void;
   batchFileRef: RefObject<HTMLInputElement | null>;
   onBatchFilesSelected: (e: React.ChangeEvent<HTMLInputElement>) => void;
 }
@@ -22,6 +23,7 @@ export default function UploadToolbar({
   mediaFileRef,
   onMediaUpload,
   onOpenLineManager,
+  onOpenBannedMediaManager,
   batchFileRef,
   onBatchFilesSelected,
 }: UploadToolbarProps) {
@@ -42,6 +44,9 @@ export default function UploadToolbar({
           <input ref={mediaFileRef} type="file" accept=".xlsx,.xls,.csv" onChange={onMediaUpload} className="hidden" />
           <button onClick={onOpenLineManager} className={btn}>
             <SlidersHorizontal size={14} /> 라인 관리
+          </button>
+          <button onClick={onOpenBannedMediaManager} className={btn}>
+            <Ban size={14} /> 노출 불가 매체
           </button>
         </div>
 
