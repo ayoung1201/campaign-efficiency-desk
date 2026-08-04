@@ -26,6 +26,7 @@ import LibraryPanel from "../components/LibraryPanel";
 import UploadToolbar from "../components/UploadToolbar";
 import BatchUploadModal from "../components/BatchUploadModal";
 import CampaignHeader from "../components/CampaignHeader";
+import SummaryBar from "../components/SummaryBar";
 import StatusCard from "../components/StatusCard";
 import ProjectionCard from "../components/ProjectionCard";
 import BudgetCard from "../components/BudgetCard";
@@ -566,9 +567,19 @@ export default function Home() {
                   오늘({todayDate}) 매체 리포트가 아직 없어요. 오늘자 리포트를 업로드해주세요.
                 </div>
               ) : (
-                <div className="grid grid-cols-1 xl:grid-cols-[360px_1fr] gap-4 items-start">
-                  {/* 왼쪽: 오늘 현황 / 예산 / 라인별 실적 / 추천 */}
-                  <div className="flex flex-col gap-4">
+                <div className="flex flex-col gap-4">
+                  {/* 스크롤 없이 바로 보이는 핵심 요약 줄 */}
+                  <SummaryBar
+                    today={today}
+                    currentProjection={currentProjection}
+                    todayStatusMet={todayStatusMet}
+                    statusMet={statusMet}
+                    remainingBudget={remainingBudget}
+                    remainingHrs={remainingHrs}
+                  />
+
+                  {/* 자세히 보기 카드들 - 좁은 한 줄로 쌓지 않고 가로로 나란히 배치 */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 items-start">
                     <StatusCard
                       uploadLine={uploadLine}
                       elapsedDisplay={elapsedDisplay}
@@ -598,10 +609,12 @@ export default function Home() {
 
                     {lineEstimates.length > 1 && <LineBreakdownCard lineEstimates={lineEstimates} vtrRange={vtrRange} ctrRange={ctrRange} />}
 
-                    <RecommendationsCard recommendations={recommendations} statusMet={statusMet} libraryByKey={libraryByKey} />
+                    <div className="md:col-span-2 xl:col-span-2">
+                      <RecommendationsCard recommendations={recommendations} statusMet={statusMet} libraryByKey={libraryByKey} />
+                    </div>
                   </div>
 
-                  {/* 오른쪽: 매체 상세 - 라인별 카드를 가로로 나란히 배치 */}
+                  {/* 매체 상세 - 라인별 카드를 가로로 나란히 배치 (전체 너비) */}
                   <MediaDetailGrid groupedProfiles={groupedProfiles} libraryByKey={libraryByKey} onToggleMedia={toggleMedia} bannedMedia={bannedMedia} />
                 </div>
               )}
