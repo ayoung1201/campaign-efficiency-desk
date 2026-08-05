@@ -56,7 +56,7 @@ export default function SummaryBar({ today, currentProjection, todayStatusMet, s
         <div className="flex items-center gap-4">
           <Stat label="VTR" value={`${fmt(today.vtr)}%`} accent={todayAccent} />
           <Stat label="CTR" value={`${fmt(today.ctr)}%`} accent={todayAccent} />
-          <Badge label="그날" met={todayStatusMet} />
+          <Badge label="해당 날짜" met={todayStatusMet} />
         </div>
         <div className="w-px self-stretch bg-[#EEF0F4]" />
         <div className="flex items-center gap-4">

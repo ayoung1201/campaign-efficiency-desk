@@ -50,7 +50,7 @@ export default function StatusCard({
           </div>
         }
       >
-        {isViewingToday ? "금일 진행 현황" : "그날 실적"} {uploadLine !== "전체" && <span className="normal-case font-medium text-[#8792A6]">· {uploadLine}</span>}
+        {isViewingToday ? "금일 진행 현황" : "해당 날짜 효율"} {uploadLine !== "전체" && <span className="normal-case font-medium text-[#8792A6]">· {uploadLine}</span>}
       </SectionTitle>
       <div className="text-[11px] text-[#9AA4B5] mb-4">
         {isViewingToday
