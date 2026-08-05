@@ -18,6 +18,7 @@ interface StatusCardProps {
   targetVTRMax: number;
   targetCTRMin: number;
   targetCTRMax: number;
+  isViewingToday?: boolean;
 }
 
 export default function StatusCard({
@@ -29,6 +30,7 @@ export default function StatusCard({
   targetVTRMax,
   targetCTRMin,
   targetCTRMax,
+  isViewingToday = true,
 }: StatusCardProps) {
   return (
     <div className={`${panel} p-4`}>
@@ -46,9 +48,11 @@ export default function StatusCard({
           </div>
         }
       >
-        금일 진행 현황 {uploadLine !== "전체" && <span className="normal-case font-medium text-[#8792A6]">· {uploadLine}</span>}
+        {isViewingToday ? "금일 진행 현황" : "그날 실적"} {uploadLine !== "전체" && <span className="normal-case font-medium text-[#8792A6]">· {uploadLine}</span>}
       </SectionTitle>
-      <div className="text-[11px] text-[#9AA4B5] mb-4">00:00 ~ {String(elapsedDisplay).padStart(2, "0")}:00 현재</div>
+      <div className="text-[11px] text-[#9AA4B5] mb-4">
+        {isViewingToday ? `00:00 ~ ${String(elapsedDisplay).padStart(2, "0")}:00 현재` : "00:00 ~ 24:00 (하루 전체)"}
+      </div>
       <div className="flex flex-col gap-2.5">
         <Gauge label="VTR" value={gaugeStats.vtr} rangeMin={targetVTRMin} rangeMax={targetVTRMax} />
         <Gauge label="CTR" value={gaugeStats.ctr} rangeMin={targetCTRMin} rangeMax={targetCTRMax} />

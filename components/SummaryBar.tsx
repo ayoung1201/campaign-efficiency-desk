@@ -41,13 +41,31 @@ interface SummaryBarProps {
   statusMet: boolean;
   remainingBudget: number;
   remainingHrs: number;
+  isViewingToday: boolean;
 }
 
-// 스크롤 없이 한눈에 보이는 핵심 요약 줄 - 지금 실적과 예상 최종 효율, 남은 예산/시간을 한 줄에 압축해서 보여준다.
-// 아래 카드들은 이 요약의 "더 자세히"에 해당한다.
-export default function SummaryBar({ today, currentProjection, todayStatusMet, statusMet, remainingBudget, remainingHrs }: SummaryBarProps) {
+// 스크롤 없이 한눈에 보이는 핵심 요약 줄. 오늘을 보는 중이면 지금 실적 + 예상 최종 효율 + 남은 예산/시간을,
+// 지난 날짜를 조회 중이면 "예상/남은"은 의미가 없으므로 그날 최종 실적만 보여준다.
+export default function SummaryBar({ today, currentProjection, todayStatusMet, statusMet, remainingBudget, remainingHrs, isViewingToday }: SummaryBarProps) {
   const todayAccent = todayStatusMet ? "#0E8074" : "#C1442B";
   const projAccent = statusMet ? "#0E8074" : "#C1442B";
+
+  if (!isViewingToday) {
+    return (
+      <div className={`${panel} px-4 py-3 flex items-center gap-6 flex-wrap`}>
+        <div className="flex items-center gap-4">
+          <Stat label="VTR" value={`${fmt(today.vtr)}%`} accent={todayAccent} />
+          <Stat label="CTR" value={`${fmt(today.ctr)}%`} accent={todayAccent} />
+          <Badge label="그날" met={todayStatusMet} />
+        </div>
+        <div className="w-px self-stretch bg-[#EEF0F4]" />
+        <div className="flex items-center gap-4">
+          <Stat label="Imps." value={fmtInt(today.imps)} />
+          <Stat label="소진액" value={`${fmtInt(today.spend)}원`} />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={`${panel} px-4 py-3 flex items-center gap-6 flex-wrap`}>

@@ -12,9 +12,10 @@ interface LineBreakdownCardProps {
   lineEstimates: LineEstimate[];
   vtrRange: Range;
   ctrRange: Range;
+  isViewingToday?: boolean;
 }
 
-export default function LineBreakdownCard({ lineEstimates, vtrRange, ctrRange }: LineBreakdownCardProps) {
+export default function LineBreakdownCard({ lineEstimates, vtrRange, ctrRange, isViewingToday = true }: LineBreakdownCardProps) {
   const sorted = [...lineEstimates].sort((a, b) => {
     const ia = CANONICAL_ORDER.indexOf(a.line);
     const ib = CANONICAL_ORDER.indexOf(b.line);
@@ -27,7 +28,7 @@ export default function LineBreakdownCard({ lineEstimates, vtrRange, ctrRange }:
   return (
     <div className={`${panel} p-4`}>
       <SectionTitle icon={BarChart3} color={ACCENT}>
-        라인별 오늘 실적
+        {isViewingToday ? "라인별 오늘 실적" : "라인별 실적"}
       </SectionTitle>
       <div className="overflow-x-auto rounded-lg border border-[#EEF0F4]">
         <table className="w-full text-[13px]">

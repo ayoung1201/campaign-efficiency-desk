@@ -33,6 +33,7 @@ import BudgetCard from "../components/BudgetCard";
 import LineBreakdownCard from "../components/LineBreakdownCard";
 import RecommendationsCard from "../components/RecommendationsCard";
 import MediaDetailGrid from "../components/MediaDetailGrid";
+import DateHistoryTabs from "../components/DateHistoryTabs";
 import { panel } from "../components/ui";
 
 export default function Home() {
@@ -63,6 +64,9 @@ export default function Home() {
   const [library, setLibrary] = useState<MediaLibraryRow[]>([]);
   const [showLibraryPanel, setShowLibraryPanel] = useState(false);
   const [libViewLine, setLibViewLine] = useState("전체");
+
+  // null이면 "오늘"을 자동으로 따라간다(날짜가 바뀌면 같이 넘어감). 과거 날짜를 직접 고르면 그 날짜에 고정된다.
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
 
   const mediaFileRef = useRef<HTMLInputElement>(null);
   const batchFileRef = useRef<HTMLInputElement>(null);
@@ -113,6 +117,7 @@ export default function Home() {
     // 이전 캠페인 기준으로 수정하던 내용이 새 캠페인 화면에 그대로 겹쳐 보인다)
     setShowLineManager(false);
     setShowBannedMediaManager(false);
+    setSelectedDate(null);
   }, [activeId]);
 
   const updateNewLine = (i: number, value: string) => setNewLines((prev) => prev.map((l, idx) => (idx === i ? value : l)));
@@ -372,9 +377,21 @@ export default function Home() {
     return [...names].sort((a, b) => a.localeCompare(b, "ko"));
   }, [profiles, libraryProfiles]);
 
-  // 매체 리포트 엑셀 한 장 = 그날 하루치 실적이므로, 오늘 날짜로 업로드된 행만 그대로 모으면 오늘 실적이 된다
-  const todayDate = todayStr();
-  const todayMediaRows = useMemo(() => todayRowsOnly(allMediaRows, todayDate), [allMediaRows, todayDate]);
+  // 실제 오늘 날짜(시스템 기준)와, 지금 화면에서 조회 중인 날짜를 구분한다.
+  // selectedDate가 null이면 realToday를 그대로 따라가고, 과거 날짜를 고르면 그 날짜에 고정된다.
+  const realToday = todayStr();
+  const viewDate = selectedDate ?? realToday;
+  const isViewingToday = viewDate === realToday;
+
+  // 이 캠페인에 업로드 기록이 있는 날짜 목록 (최신순, 오늘 날짜는 데이터가 없어도 항상 포함)
+  const availableDates = useMemo(() => {
+    const dates = new Set(allMediaRows.map((r) => r.report_date));
+    dates.add(realToday);
+    return [...dates].sort((a, b) => (a < b ? 1 : a > b ? -1 : 0));
+  }, [allMediaRows, realToday]);
+
+  // 매체 리포트 엑셀 한 장 = 그날 하루치 실적이므로, 조회 중인 날짜로 업로드된 행만 그대로 모으면 그날 실적이 된다
+  const todayMediaRows = useMemo(() => todayRowsOnly(allMediaRows, viewDate), [allMediaRows, viewDate]);
   const hasTodaySnapshot = todayMediaRows.length > 0;
   const today = useMemo(() => sumRows(todayMediaRows), [todayMediaRows]);
 
@@ -421,7 +438,7 @@ export default function Home() {
   }, [uploadLine, todayMediaRows, today]);
   const gaugeInRange = inRange(gaugeStats.vtr, vtrRange) && inRange(gaugeStats.ctr, ctrRange);
   const hasProfiles = profiles.length > 0;
-  const hasData = hasProfiles && hasTodaySnapshot;
+  const hasData = hasProfiles && hasTodaySnapshot && isViewingToday;
 
   // 현재 라인 필터 적용 + 원본 라인명 그대로 그룹핑 (표준 카테고리로 합치지 않음 - 데스크탑_2039/5059처럼
   // 같은 카테고리 안에 서로 다른 실제 라인이 있으면 매체 상세에서는 그 라인 그대로 따로 보여준다)
@@ -558,13 +575,26 @@ export default function Home() {
               {error && <div className="text-[#C1442B] text-[13px] mb-3">{error}</div>}
               {loading && <div className="text-[#8792A6] text-[13px] mb-3">불러오는 중...</div>}
 
+              {hasProfiles && (
+                <div className="mb-4">
+                  <DateHistoryTabs
+                    dates={availableDates}
+                    selectedDate={viewDate}
+                    today={realToday}
+                    onSelect={(d) => setSelectedDate(d === realToday ? null : d)}
+                  />
+                </div>
+              )}
+
               {!hasProfiles ? (
                 <div className={`text-center text-[#8792A6] text-[13px] py-16 ${panel} border-dashed`}>
                   &quot;{active.name}&quot; 캠페인에 라인별 매체 리포트를 업로드해주세요.
                 </div>
               ) : !hasTodaySnapshot ? (
                 <div className={`text-center text-[#8792A6] text-[13px] py-16 ${panel} border-dashed`}>
-                  오늘({todayDate}) 매체 리포트가 아직 없어요. 오늘자 리포트를 업로드해주세요.
+                  {isViewingToday
+                    ? `오늘(${viewDate}) 매체 리포트가 아직 없어요. 오늘자 리포트를 업로드해주세요.`
+                    : `${viewDate}에는 업로드된 매체 리포트가 없어요.`}
                 </div>
               ) : (
                 <div className="flex flex-col gap-4">
@@ -576,43 +606,67 @@ export default function Home() {
                     statusMet={statusMet}
                     remainingBudget={remainingBudget}
                     remainingHrs={remainingHrs}
+                    isViewingToday={isViewingToday}
                   />
 
-                  {/* 자세히 보기 카드들 - 좁은 한 줄로 쌓지 않고 가로로 나란히 배치 */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 items-start">
-                    <StatusCard
-                      uploadLine={uploadLine}
-                      elapsedDisplay={elapsedDisplay}
-                      gaugeStats={gaugeStats}
-                      gaugeInRange={gaugeInRange}
-                      targetVTRMin={targetVTRMin}
-                      targetVTRMax={targetVTRMax}
-                      targetCTRMin={targetCTRMin}
-                      targetCTRMax={targetCTRMax}
-                    />
+                  {isViewingToday ? (
+                    <>
+                      {/* 자세히 보기 카드들 - 높이가 비슷한 카드끼리 짝지어서 빈 공간 없이 배치 */}
+                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
+                        <StatusCard
+                          uploadLine={uploadLine}
+                          elapsedDisplay={elapsedDisplay}
+                          gaugeStats={gaugeStats}
+                          gaugeInRange={gaugeInRange}
+                          targetVTRMin={targetVTRMin}
+                          targetVTRMax={targetVTRMax}
+                          targetCTRMin={targetCTRMin}
+                          targetCTRMax={targetCTRMax}
+                        />
 
-                    <ProjectionCard
-                      currentProjection={currentProjection}
-                      statusMet={statusMet}
-                      targetVTRMin={targetVTRMin}
-                      targetVTRMax={targetVTRMax}
-                      targetCTRMin={targetCTRMin}
-                      targetCTRMax={targetCTRMax}
-                    />
+                        <ProjectionCard
+                          currentProjection={currentProjection}
+                          statusMet={statusMet}
+                          targetVTRMin={targetVTRMin}
+                          targetVTRMax={targetVTRMax}
+                          targetCTRMin={targetCTRMin}
+                          targetCTRMax={targetCTRMax}
+                        />
+                      </div>
 
-                    <BudgetCard
-                      dailyBudget={dailyBudget}
-                      onChangeDailyBudget={updateDailyBudget}
-                      remainingBudget={remainingBudget}
-                      remainingHrs={remainingHrs}
-                    />
+                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
+                        <BudgetCard
+                          dailyBudget={dailyBudget}
+                          onChangeDailyBudget={updateDailyBudget}
+                          remainingBudget={remainingBudget}
+                          remainingHrs={remainingHrs}
+                        />
 
-                    {lineEstimates.length > 1 && <LineBreakdownCard lineEstimates={lineEstimates} vtrRange={vtrRange} ctrRange={ctrRange} />}
+                        {lineEstimates.length > 1 && <LineBreakdownCard lineEstimates={lineEstimates} vtrRange={vtrRange} ctrRange={ctrRange} />}
+                      </div>
 
-                    <div className="md:col-span-2 xl:col-span-2">
                       <RecommendationsCard recommendations={recommendations} statusMet={statusMet} libraryByKey={libraryByKey} />
+                    </>
+                  ) : (
+                    // 지난 날짜 조회 중에는 "남은 예산/예상 최종/추천"이 의미가 없으므로, 그날 실적만 보여준다
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
+                      <StatusCard
+                        uploadLine={uploadLine}
+                        elapsedDisplay={elapsedDisplay}
+                        gaugeStats={gaugeStats}
+                        gaugeInRange={gaugeInRange}
+                        targetVTRMin={targetVTRMin}
+                        targetVTRMax={targetVTRMax}
+                        targetCTRMin={targetCTRMin}
+                        targetCTRMax={targetCTRMax}
+                        isViewingToday={false}
+                      />
+
+                      {lineEstimates.length > 1 && (
+                        <LineBreakdownCard lineEstimates={lineEstimates} vtrRange={vtrRange} ctrRange={ctrRange} isViewingToday={false} />
+                      )}
                     </div>
-                  </div>
+                  )}
 
                   {/* 매체 상세 - 라인별 카드를 가로로 나란히 배치 (전체 너비) */}
                   <MediaDetailGrid groupedProfiles={groupedProfiles} libraryByKey={libraryByKey} onToggleMedia={toggleMedia} bannedMedia={bannedMedia} />
