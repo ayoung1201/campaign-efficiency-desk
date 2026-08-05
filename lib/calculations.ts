@@ -43,6 +43,32 @@ export function todayStr(): string {
   return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Seoul" }).format(new Date());
 }
 
+// 주어진 행들 중 가장 최근 업로드 시각(uploaded_at)을 찾는다. 그날 실적이 하루 전체가 아니라
+// "몇 시까지 업로드된 데이터인지"를 보여주는 용도 (업로드 시점에 따라 실제 커버 범위가 다르기 때문).
+export function latestUploadedAt(rows: { uploaded_at: string }[]): string | null {
+  let latest: string | null = null;
+  for (const r of rows) {
+    if (!r.uploaded_at) continue;
+    if (!latest || r.uploaded_at > latest) latest = r.uploaded_at;
+  }
+  return latest;
+}
+
+// ISO 타임스탬프를 한국(Asia/Seoul) 기준 "M/D HH:mm"으로 표시
+export function formatSeoulDateTime(iso: string): string {
+  const d = new Date(iso.endsWith("Z") || iso.includes("+") ? iso : iso + "Z");
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "Asia/Seoul",
+    month: "numeric",
+    day: "numeric",
+    hourCycle: "h23",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).formatToParts(d);
+  const get = (type: string) => parts.find((p) => p.type === type)?.value ?? "";
+  return `${get("month")}/${get("day")} ${get("hour")}:${get("minute")}`;
+}
+
 // 한국(Asia/Seoul) 기준 지금 몇시(소수점 포함, 예: 14시 30분 -> 14.5)
 export function currentSeoulHourFraction(): number {
   const parts = new Intl.DateTimeFormat("en-US", { timeZone: "Asia/Seoul", hourCycle: "h23", hour: "2-digit", minute: "2-digit" }).formatToParts(

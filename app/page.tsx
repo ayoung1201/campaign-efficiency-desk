@@ -10,7 +10,9 @@ import {
   buildRecommendations,
   canonicalLine,
   currentSeoulHourFraction,
+  formatSeoulDateTime,
   inRange,
+  latestUploadedAt,
   projectFinal,
   rowsByLine,
   sumRows,
@@ -395,6 +397,13 @@ export default function Home() {
   const hasTodaySnapshot = todayMediaRows.length > 0;
   const today = useMemo(() => sumRows(todayMediaRows), [todayMediaRows]);
 
+  // 과거 날짜를 볼 때는 "하루 전체"가 아니라 실제로 몇 시까지 업로드된 데이터인지 보여준다
+  // (하루 종일 업로드한 게 아니라 언제 업로드했느냐에 따라 커버 범위가 다르기 때문)
+  const viewDateAsOfLabel = useMemo(() => {
+    const latest = latestUploadedAt(todayMediaRows);
+    return latest ? formatSeoulDateTime(latest) : null;
+  }, [todayMediaRows]);
+
   const elapsed = currentSeoulHourFraction();
   const elapsedDisplay = Math.floor(elapsed);
   const remainingHrs = Math.max(0, 24 - elapsed);
@@ -660,6 +669,7 @@ export default function Home() {
                         targetCTRMin={targetCTRMin}
                         targetCTRMax={targetCTRMax}
                         isViewingToday={false}
+                        asOfLabel={viewDateAsOfLabel ?? undefined}
                       />
 
                       {lineEstimates.length > 1 && (
