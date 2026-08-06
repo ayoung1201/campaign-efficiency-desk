@@ -38,16 +38,21 @@ import MediaDetailGrid from "../components/MediaDetailGrid";
 import DateHistoryTabs from "../components/DateHistoryTabs";
 import { panel } from "../components/ui";
 
+// 캠페인마다 목표 범위가 다를 수 있어 campaigns 테이블에 저장하지만, 아직 값이 없는(과거) 캠페인을 위한 기본값
+const DEFAULT_TARGET_VTR_MIN = 70;
+const DEFAULT_TARGET_VTR_MAX = 73;
+const DEFAULT_TARGET_CTR_MIN = 1.0;
+const DEFAULT_TARGET_CTR_MAX = 1.3;
+
 export default function Home() {
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [allMediaRows, setAllMediaRows] = useState<MediaRow[]>([]);
 
-  // 목표는 "최소 이상"이 아니라 적정 범위(min~max)로 관리
-  const [targetVTRMin, setTargetVTRMin] = useState(70);
-  const [targetVTRMax, setTargetVTRMax] = useState(73);
-  const [targetCTRMin, setTargetCTRMin] = useState(1.0);
-  const [targetCTRMax, setTargetCTRMax] = useState(1.3);
+  const [newTargetVTRMin, setNewTargetVTRMin] = useState(DEFAULT_TARGET_VTR_MIN);
+  const [newTargetVTRMax, setNewTargetVTRMax] = useState(DEFAULT_TARGET_VTR_MAX);
+  const [newTargetCTRMin, setNewTargetCTRMin] = useState(DEFAULT_TARGET_CTR_MIN);
+  const [newTargetCTRMax, setNewTargetCTRMax] = useState(DEFAULT_TARGET_CTR_MAX);
 
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -132,7 +137,14 @@ export default function Home() {
     const lines = newLines.map((l) => l.trim()).filter(Boolean);
     const { data, error } = await supabase
       .from("campaigns")
-      .insert({ name, lines: lines.length > 0 ? lines : ["전체"] })
+      .insert({
+        name,
+        lines: lines.length > 0 ? lines : ["전체"],
+        target_vtr_min: newTargetVTRMin,
+        target_vtr_max: newTargetVTRMax,
+        target_ctr_min: newTargetCTRMin,
+        target_ctr_max: newTargetCTRMax,
+      })
       .select()
       .single();
     if (error) {
@@ -141,6 +153,10 @@ export default function Home() {
     }
     setNewName("");
     setNewLines([...CANONICAL_ORDER]);
+    setNewTargetVTRMin(DEFAULT_TARGET_VTR_MIN);
+    setNewTargetVTRMax(DEFAULT_TARGET_VTR_MAX);
+    setNewTargetCTRMin(DEFAULT_TARGET_CTR_MIN);
+    setNewTargetCTRMax(DEFAULT_TARGET_CTR_MAX);
     setShowNewForm(false);
     await loadCampaigns();
     if (data) setActiveId(data.id);
@@ -364,6 +380,14 @@ export default function Home() {
     if (error) setError("일예산 저장 실패: " + error.message);
   };
 
+  // 캠페인마다 목표 효율 범위가 다르므로 campaigns 테이블에 캠페인 단위로 저장한다
+  const updateTargetRange = async (field: "target_vtr_min" | "target_vtr_max" | "target_ctr_min" | "target_ctr_max", value: number) => {
+    if (!active) return;
+    setCampaigns((prev) => prev.map((c) => (c.id === active.id ? { ...c, [field]: value } : c)));
+    const { error } = await supabase.from("campaigns").update({ [field]: value }).eq("id", active.id);
+    if (error) setError("목표 범위 저장 실패: " + error.message);
+  };
+
   // --- 계산 ---
   const profiles = useMemo(() => buildMediaProfiles(allMediaRows), [allMediaRows]);
   const includedIds = useMemo(() => new Set(profiles.filter((p) => p.included).map((p) => p.id)), [profiles]);
@@ -411,6 +435,10 @@ export default function Home() {
   const dailyBudget = active?.daily_budget ?? Math.round(suggestedBudget);
   const remainingBudget = Math.max(0, dailyBudget - today.spend);
 
+  const targetVTRMin = active?.target_vtr_min ?? DEFAULT_TARGET_VTR_MIN;
+  const targetVTRMax = active?.target_vtr_max ?? DEFAULT_TARGET_VTR_MAX;
+  const targetCTRMin = active?.target_ctr_min ?? DEFAULT_TARGET_CTR_MIN;
+  const targetCTRMax = active?.target_ctr_max ?? DEFAULT_TARGET_CTR_MAX;
   const vtrRange = { min: targetVTRMin, max: targetVTRMax };
   const ctrRange = { min: targetCTRMin, max: targetCTRMax };
 
@@ -491,14 +519,15 @@ export default function Home() {
           setShowLibraryPanel(false);
         }}
         onShowLibrary={() => setShowLibraryPanel(true)}
+        showTargetRange={!!active && !showNewForm && !showLibraryPanel}
         targetVTRMin={targetVTRMin}
         targetVTRMax={targetVTRMax}
         targetCTRMin={targetCTRMin}
         targetCTRMax={targetCTRMax}
-        setTargetVTRMin={setTargetVTRMin}
-        setTargetVTRMax={setTargetVTRMax}
-        setTargetCTRMin={setTargetCTRMin}
-        setTargetCTRMax={setTargetCTRMax}
+        onChangeTargetVTRMin={(v) => updateTargetRange("target_vtr_min", v)}
+        onChangeTargetVTRMax={(v) => updateTargetRange("target_vtr_max", v)}
+        onChangeTargetCTRMin={(v) => updateTargetRange("target_ctr_min", v)}
+        onChangeTargetCTRMax={(v) => updateTargetRange("target_ctr_max", v)}
       />
 
       {/* 메인 콘텐츠 */}
@@ -512,6 +541,14 @@ export default function Home() {
               updateNewLine={updateNewLine}
               addNewLineField={addNewLineField}
               removeNewLineField={removeNewLineField}
+              newTargetVTRMin={newTargetVTRMin}
+              newTargetVTRMax={newTargetVTRMax}
+              newTargetCTRMin={newTargetCTRMin}
+              newTargetCTRMax={newTargetCTRMax}
+              setNewTargetVTRMin={setNewTargetVTRMin}
+              setNewTargetVTRMax={setNewTargetVTRMax}
+              setNewTargetCTRMin={setNewTargetCTRMin}
+              setNewTargetCTRMax={setNewTargetCTRMax}
               onCreate={createCampaign}
               onCancel={() => setShowNewForm(false)}
             />

@@ -4,6 +4,10 @@ export interface Campaign {
   daily_budget: number | null;
   lines: string[]; // 캠페인 등록 시 정의한 라인 목록 (예: ["데스크탑_2039","모바일app_5059",...])
   banned_media: string[] | null; // 이 캠페인에는 노출되면 안 되는 매체명 목록 (예: ["더줌코리아_캐시워크"])
+  target_vtr_min: number | null; // 캠페인마다 목표 효율 범위가 다르므로 캠페인 단위로 저장
+  target_vtr_max: number | null;
+  target_ctr_min: number | null;
+  target_ctr_max: number | null;
   created_at: string;
 }
 

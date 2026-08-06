@@ -9,6 +9,14 @@ interface NewCampaignFormProps {
   updateNewLine: (i: number, value: string) => void;
   addNewLineField: () => void;
   removeNewLineField: (i: number) => void;
+  newTargetVTRMin: number;
+  newTargetVTRMax: number;
+  newTargetCTRMin: number;
+  newTargetCTRMax: number;
+  setNewTargetVTRMin: (v: number) => void;
+  setNewTargetVTRMax: (v: number) => void;
+  setNewTargetCTRMin: (v: number) => void;
+  setNewTargetCTRMax: (v: number) => void;
   onCreate: () => void;
   onCancel: () => void;
 }
@@ -20,6 +28,14 @@ export default function NewCampaignForm({
   updateNewLine,
   addNewLineField,
   removeNewLineField,
+  newTargetVTRMin,
+  newTargetVTRMax,
+  newTargetCTRMin,
+  newTargetCTRMax,
+  setNewTargetVTRMin,
+  setNewTargetVTRMax,
+  setNewTargetCTRMin,
+  setNewTargetCTRMax,
   onCreate,
   onCancel,
 }: NewCampaignFormProps) {
@@ -52,6 +68,45 @@ export default function NewCampaignForm({
           <button onClick={addNewLineField} className="text-[12px] font-semibold text-[#0B1220] self-start mt-1 hover:underline">
             + 라인 추가
           </button>
+        </div>
+      </div>
+      <div className="mb-4">
+        <label className={`${label} block mb-1`}>목표 범위 (이 캠페인 전용)</label>
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-1.5 text-[13px]">
+            <span className="text-[#8792A6] font-semibold w-9">VTR</span>
+            <input
+              type="number"
+              value={newTargetVTRMin}
+              onChange={(e) => setNewTargetVTRMin(parseFloat(e.target.value) || 0)}
+              className={`${input} w-16`}
+            />
+            <span className="text-[#9AA4B5]">~</span>
+            <input
+              type="number"
+              value={newTargetVTRMax}
+              onChange={(e) => setNewTargetVTRMax(parseFloat(e.target.value) || 0)}
+              className={`${input} w-16`}
+            />
+          </div>
+          <div className="flex items-center gap-1.5 text-[13px]">
+            <span className="text-[#8792A6] font-semibold w-9">CTR</span>
+            <input
+              type="number"
+              step="0.1"
+              value={newTargetCTRMin}
+              onChange={(e) => setNewTargetCTRMin(parseFloat(e.target.value) || 0)}
+              className={`${input} w-16`}
+            />
+            <span className="text-[#9AA4B5]">~</span>
+            <input
+              type="number"
+              step="0.1"
+              value={newTargetCTRMax}
+              onChange={(e) => setNewTargetCTRMax(parseFloat(e.target.value) || 0)}
+              className={`${input} w-16`}
+            />
+          </div>
         </div>
       </div>
       <div className="flex gap-2">
