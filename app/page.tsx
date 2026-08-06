@@ -643,16 +643,16 @@ export default function Home() {
                         />
                       </div>
 
-                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
-                        <BudgetCard
-                          dailyBudget={dailyBudget}
-                          onChangeDailyBudget={updateDailyBudget}
-                          remainingBudget={remainingBudget}
-                          remainingHrs={remainingHrs}
-                        />
+                      {/* 예산은 짧고 라인별 실적은 데이터에 따라 길이가 달라서, 나란히 두면 높이가
+                          안 맞아 빈 공간이 생긴다. 각자 전체 너비로 따로 둬서 그 문제를 없앤다. */}
+                      <BudgetCard
+                        dailyBudget={dailyBudget}
+                        onChangeDailyBudget={updateDailyBudget}
+                        remainingBudget={remainingBudget}
+                        remainingHrs={remainingHrs}
+                      />
 
-                        {lineEstimates.length > 1 && <LineBreakdownCard lineEstimates={lineEstimates} vtrRange={vtrRange} ctrRange={ctrRange} />}
-                      </div>
+                      {lineEstimates.length > 1 && <LineBreakdownCard lineEstimates={lineEstimates} vtrRange={vtrRange} ctrRange={ctrRange} />}
 
                       <RecommendationsCard recommendations={recommendations} statusMet={statusMet} libraryByKey={libraryByKey} />
                     </>
