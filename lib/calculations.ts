@@ -85,11 +85,13 @@ export function todayRowsOnly(allRows: MediaRow[], today: string): MediaRow[] {
   return allRows.filter((r) => r.report_date === today);
 }
 
-// 오늘 업로드된 매체 행들을 표준 라인 카테고리(데스크탑/모바일app/모바일web)로 묶어서, 라인별 오늘 실적을 만든다
+// 오늘 업로드된 매체 행들을 실제 라인(예: "데스크탑_2039"와 "데스크탑_5059"는 서로 다르게) 그대로 묶어서,
+// 라인별 오늘 실적을 만든다. 캠페인마다 실제 존재하는 라인 구성이 다르므로(예: 연령대별로 세분화된 캠페인)
+// 표준 3분류로 합치지 않고 원본 라인명 단위로 보여준다.
 export function rowsByLine(rows: { line_label: string; imps: number; view: number; cclick: number; spend: number }[]): LineEstimate[] {
   const groups = new Map<string, { spend: number; imps: number; view: number; cclick: number }>();
   for (const r of rows) {
-    const key = canonicalLine(r.line_label);
+    const key = r.line_label || "전체";
     const g = groups.get(key) || { spend: 0, imps: 0, view: 0, cclick: 0 };
     g.spend += r.spend;
     g.imps += r.imps;
