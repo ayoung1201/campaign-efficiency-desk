@@ -174,6 +174,7 @@ export default function LibraryPanel({
           onChangeAssignment={onChangeLibBatchAssignment}
           onConfirm={onConfirmLibBatchUpload}
           onCancel={onCancelLibBatchUpload}
+          allowCustom
         />
       )}
 
