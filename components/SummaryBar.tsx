@@ -10,13 +10,15 @@ interface StatProps {
   accent?: string;
   bg?: string;
   sub?: string;
+  size?: "normal" | "hero";
 }
 
-function Stat({ label, value, accent, bg, sub }: StatProps) {
+function Stat({ label, value, accent, bg, sub, size = "normal" }: StatProps) {
+  const isHero = size === "hero";
   return (
-    <div className={`flex flex-col ${bg ? "px-3 py-1.5 rounded-lg" : ""}`} style={bg ? { backgroundColor: bg } : undefined}>
-      <div className="text-[10.5px] font-semibold uppercase tracking-wide text-[#9AA4B5]">{label}</div>
-      <div className="text-[18px] font-bold tabular-nums leading-tight" style={accent ? { color: accent } : undefined}>
+    <div className={`flex flex-col ${bg ? (isHero ? "px-4 py-2 rounded-xl" : "px-3 py-1.5 rounded-lg") : ""}`} style={bg ? { backgroundColor: bg } : undefined}>
+      <div className={`${isHero ? "text-[11px]" : "text-[10.5px]"} font-semibold uppercase tracking-wide text-[#9AA4B5]`}>{label}</div>
+      <div className={`${isHero ? "text-[34px]" : "text-[18px]"} font-bold tabular-nums leading-tight`} style={accent ? { color: accent } : undefined}>
         {value}
       </div>
       {sub && <div className="text-[10.5px] text-[#9AA4B5] tabular-nums leading-tight mt-0.5">{sub}</div>}
@@ -75,12 +77,15 @@ export default function SummaryBar({
   if (!isViewingToday) {
     const rangeBg = todayStatusMet ? "#EAF7F4" : "#FCEEEC";
     return (
-      <div className={`${panel} px-4 py-3 flex items-center gap-3 flex-wrap`}>
-        <div className="flex items-center gap-2">
-          <Stat label="VTR" value={`${fmt(today.vtr)}%`} accent={todayAccent} bg={rangeBg} sub={vtrRange ? `목표 ${fmt(vtrRange.min)}~${fmt(vtrRange.max)}%` : undefined} />
-          <Stat label="CTR" value={`${fmt(today.ctr)}%`} accent={todayAccent} bg={rangeBg} sub={ctrRange ? `목표 ${fmt(ctrRange.min)}~${fmt(ctrRange.max)}%` : undefined} />
+      <div className={`${panel} px-5 py-4 flex items-center gap-4 flex-wrap`}>
+        <div>
+          <div className="text-[11px] font-semibold uppercase tracking-wide text-[#9AA4B5] mb-1">해당 날짜 효율</div>
+          <Badge label="해당 날짜" met={todayStatusMet} />
         </div>
-        <Badge label="해당 날짜" met={todayStatusMet} />
+        <div className="flex items-center gap-3">
+          <Stat label="VTR" value={`${fmt(today.vtr)}%`} accent={todayAccent} bg={rangeBg} sub={vtrRange ? `목표 ${fmt(vtrRange.min)}~${fmt(vtrRange.max)}%` : undefined} size="hero" />
+          <Stat label="CTR" value={`${fmt(today.ctr)}%`} accent={todayAccent} bg={rangeBg} sub={ctrRange ? `목표 ${fmt(ctrRange.min)}~${fmt(ctrRange.max)}%` : undefined} size="hero" />
+        </div>
         <div className="w-px self-stretch bg-[#EEF0F4]" />
         <div className="flex items-center gap-4">
           <Stat label="Imps." value={fmtInt(today.imps)} />
