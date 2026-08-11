@@ -75,9 +75,7 @@ export default function LibraryPanel({
       <SectionTitle icon={Database} color={ACCENT}>
         매체별 평균 효율
       </SectionTitle>
-      <div className="text-[12px] text-[#8792A6] -mt-2 mb-4">
-        이미 종료된 캠페인의 매체 리포트를 라인별로 업로드하면 매체명·Imp·View·Click·소진광고비를 자동으로 읽어서 쌓아요. 리포트 파일 자체엔 라인 구분이 없어서, 업로드할 때 캠페인명과 라인을 직접 지정해주세요. 캠페인 하나에 라인이 여러 개면(예: 데스크탑_2039, 데스크탑_5059) 라인명을 다르게 해서 파일을 따로따로 업로드해야 둘 다 쌓여요 — 같은 캠페인명이라도 라인명이 다르면 서로 덮어쓰지 않습니다. 정확히 같은 캠페인명+라인명을 다시 올릴 때만 그 조합만 덮어써요.
-      </div>
+      <div className="text-[12px] text-[#8792A6] -mt-2 mb-4">종료된 캠페인의 매체 리포트를 라인별로 업로드해서 쌓아요.</div>
 
       {librarySourceGroups.length > 0 && (
         <div className="flex flex-col gap-1.5 mb-4">
@@ -168,8 +166,6 @@ export default function LibraryPanel({
         </button>
         <input ref={libBatchFileRef} type="file" accept=".xlsx,.xls,.csv" multiple onChange={onLibBatchFilesSelected} className="hidden" />
       </div>
-      <div className="text-[11px] text-[#9AA4B5] mb-4">라인 선택은 위 캠페인명에 이미 올라간 라인이 있으면 그 라인들을, 없으면 표준 3분류를 먼저 보여줘요. 목록에 없는 라인은 “+ 새 라인명 직접 입력”으로 추가하세요.</div>
-
       {libBatchFiles && (
         <BatchUploadModal
           files={libBatchFiles}
