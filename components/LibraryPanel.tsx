@@ -1,7 +1,7 @@
 "use client";
 
 import { RefObject } from "react";
-import { CheckCircle2, Database, Upload } from "lucide-react";
+import { CheckCircle2, Database, Trash2, Upload } from "lucide-react";
 import { fmt, profileMetrics } from "../lib/calculations";
 import { LibraryProfile } from "../lib/types";
 import { LIBRARY_LINE_OPTIONS } from "../lib/constants";
@@ -30,6 +30,7 @@ interface LibraryPanelProps {
   error: string;
   libraryFileRef: RefObject<HTMLInputElement | null>;
   onUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  onDeleteSource: (source: string) => void;
 }
 
 export default function LibraryPanel({
@@ -46,6 +47,7 @@ export default function LibraryPanel({
   error,
   libraryFileRef,
   onUpload,
+  onDeleteSource,
 }: LibraryPanelProps) {
   return (
     <div className={`${panel} p-5`}>
@@ -71,6 +73,13 @@ export default function LibraryPanel({
                     </span>
                   ))}
                 </div>
+                <button
+                  onClick={() => onDeleteSource(g.source)}
+                  title={`${g.source} 캠페인 라이브러리 데이터 전체 삭제`}
+                  className="text-[#9AA4B5] hover:text-[#C1442B] hover:bg-[#FBEAE6] rounded p-1 transition-colors shrink-0"
+                >
+                  <Trash2 size={12} />
+                </button>
               </div>
             ))}
           </div>

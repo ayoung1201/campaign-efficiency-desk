@@ -385,6 +385,20 @@ export default function Home() {
     }
   };
 
+  // 라이브러리에 잘못 올렸거나 다시 올리고 싶을 때 캠페인(source) 단위로 통째로 지운다 (그 캠페인의 모든 라인 포함)
+  const deleteLibrarySource = async (source: string) => {
+    const ok = window.confirm(`"${source}" 캠페인의 라이브러리 데이터를 전부 삭제할까요?\n(모든 라인 포함, 되돌릴 수 없습니다)`);
+    if (!ok) return;
+    const { error } = await supabase.from("media_library").delete().eq("source", source);
+    if (error) {
+      setError("라이브러리 삭제 실패: " + error.message);
+      return;
+    }
+    setError("");
+    if (libUploadSuccess?.source === source) setLibUploadSuccess(null);
+    await loadLibrary();
+  };
+
   const toggleMedia = async (latestRowId: string, nextIncluded: boolean) => {
     setAllMediaRows((prev) => prev.map((r) => (r.id === latestRowId ? { ...r, included: nextIncluded } : r)));
     const { error } = await supabase.from("media_reports").update({ included: nextIncluded }).eq("id", latestRowId);
@@ -613,6 +627,7 @@ export default function Home() {
               error={error}
               libraryFileRef={libraryFileRef}
               onUpload={handleLibraryUpload}
+              onDeleteSource={deleteLibrarySource}
             />
           ) : !active ? (
             <div className={`text-center text-[#8792A6] text-[13px] py-16 ${panel} border-dashed`}>캠페인을 먼저 추가해주세요.</div>
