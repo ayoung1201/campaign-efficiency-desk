@@ -74,6 +74,7 @@ export default function Home() {
   // 캠페인 상세 리포트 파일 자체엔 라인 정보가 없어서(매체 리포트 업로드와 동일하게) 업로드 시 캠페인명 + 라인을 직접 지정한다.
   const [libCampaignName, setLibCampaignName] = useState("");
   const [libUploadLine, setLibUploadLine] = useState(LIBRARY_LINE_OPTIONS[0]);
+  const [libUploadSuccess, setLibUploadSuccess] = useState<{ source: string; line: string; mediaCount: number } | null>(null);
 
   // null이면 "오늘"을 자동으로 따라간다(날짜가 바뀌면 같이 넘어감). 과거 날짜를 직접 고르면 그 날짜에 고정된다.
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
@@ -342,22 +343,29 @@ export default function Home() {
     e.target.value = "";
     if (!file) return;
     const source = libCampaignName.trim();
+    const line = libUploadLine.trim();
+    setLibUploadSuccess(null);
     if (!source) {
       setError("먼저 캠페인명을 입력해주세요.");
       return;
     }
+    if (!line) {
+      setError("라인명을 입력해주세요. (예: 데스크탑_2039)");
+      return;
+    }
     try {
       // 매체 리포트 업로드와 동일한 형식(파일 자체엔 라인 정보 없음) - 지정한 캠페인명+라인으로 저장한다.
-      // 같은 캠페인의 같은 라인을 다시 올리면 그 조합만 덮어쓰고, 다른 라인/캠페인은 그대로 유지된다.
+      // 라인명은 자유 입력이라(예: "데스크탑_2039"와 "데스크탑_5059") 서로 다른 값이면 서로 덮어쓰지 않고
+      // 둘 다 쌓인다. 정확히 같은 캠페인명+라인명을 다시 올릴 때만 그 조합을 덮어쓴다.
       const parsed = await parseExcelFile(file);
       if (!parsed) {
         setError("리포트를 인식하지 못했어요. '매체', 'Imps' 컬럼을 확인해주세요.");
         return;
       }
-      await supabase.from("media_library").delete().eq("source", source).eq("line_label", libUploadLine);
+      await supabase.from("media_library").delete().eq("source", source).eq("line_label", line);
       const rows = parsed.map((r) => ({
         source,
-        line_label: libUploadLine,
+        line_label: line,
         media: r.label,
         report_date: todayStr(),
         imps: r.imps,
@@ -369,6 +377,7 @@ export default function Home() {
       if (error) setError("라이브러리 저장 실패: " + error.message);
       else {
         setError("");
+        setLibUploadSuccess({ source, line, mediaCount: rows.length });
         await loadLibrary();
       }
     } catch {
@@ -402,7 +411,27 @@ export default function Home() {
   const includedIds = useMemo(() => new Set(profiles.filter((p) => p.included).map((p) => p.id)), [profiles]);
   const libraryProfiles = useMemo(() => buildLibraryProfiles(library), [library]);
   const libraryByKey = useMemo(() => new Map(libraryProfiles.map((l) => [l.id, l])), [libraryProfiles]);
-  const librarySources = useMemo(() => [...new Set(library.map((r) => r.source || "미상"))], [library]);
+  // 캠페인(source)별로 지금까지 어떤 라인들이 실제로 저장돼 있는지 - 업로드가 라인마다 제대로 쌓이고 있는지
+  // 눈으로 바로 확인할 수 있도록 캠페인명만이 아니라 그 안의 라인 목록까지 함께 보여준다.
+  const librarySourceGroups = useMemo(() => {
+    const map = new Map<string, { lines: Set<string>; mediaCount: number }>();
+    for (const r of library) {
+      const src = r.source || "미상";
+      if (!map.has(src)) map.set(src, { lines: new Set(), mediaCount: 0 });
+      const g = map.get(src)!;
+      g.lines.add(r.line_label || "전체");
+      g.mediaCount += 1;
+    }
+    return [...map.entries()]
+      .map(([source, g]) => ({ source, lines: [...g.lines].sort((a, b) => a.localeCompare(b, "ko")), mediaCount: g.mediaCount }))
+      .sort((a, b) => a.source.localeCompare(b.source, "ko"));
+  }, [library]);
+  // 라인 입력 시 자동완성으로 보여줄 후보 - 표준 3분류 + 지금까지 실제로 입력했던 라인명(예: 데스크탑_2039)
+  const libraryLineSuggestions = useMemo(() => {
+    const set = new Set<string>(LIBRARY_LINE_OPTIONS);
+    for (const r of library) if (r.line_label) set.add(r.line_label);
+    return [...set].sort((a, b) => a.localeCompare(b, "ko"));
+  }, [library]);
 
   // 노출 불가 매체를 검색/선택할 때 보여줄 후보 목록 - 이 캠페인에 실제로 올라온 매체 + 라이브러리 전체 매체
   const availableMediaForBan = useMemo(() => {
@@ -565,14 +594,22 @@ export default function Home() {
 
           {showLibraryPanel ? (
             <LibraryPanel
-              librarySources={librarySources}
+              librarySourceGroups={librarySourceGroups}
+              libraryLineSuggestions={libraryLineSuggestions}
               libraryProfiles={libraryProfiles}
               libViewLine={libViewLine}
               setLibViewLine={setLibViewLine}
               libCampaignName={libCampaignName}
-              setLibCampaignName={setLibCampaignName}
+              setLibCampaignName={(v) => {
+                setLibCampaignName(v);
+                setLibUploadSuccess(null);
+              }}
               libUploadLine={libUploadLine}
-              setLibUploadLine={setLibUploadLine}
+              setLibUploadLine={(v) => {
+                setLibUploadLine(v);
+                setLibUploadSuccess(null);
+              }}
+              libUploadSuccess={libUploadSuccess}
               error={error}
               libraryFileRef={libraryFileRef}
               onUpload={handleLibraryUpload}
