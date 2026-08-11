@@ -718,6 +718,9 @@ export default function Home() {
                     remainingBudget={remainingBudget}
                     remainingHrs={remainingHrs}
                     isViewingToday={isViewingToday}
+                    vtrRange={vtrRange}
+                    ctrRange={ctrRange}
+                    asOfLabel={viewDateAsOfLabel}
                   />
 
                   {isViewingToday ? (
@@ -759,26 +762,10 @@ export default function Home() {
                       <RecommendationsCard recommendations={recommendations} statusMet={statusMet} libraryByKey={libraryByKey} />
                     </>
                   ) : (
-                    // 지난 날짜 조회 중에는 "남은 예산/예상 최종/추천"이 의미가 없으므로, 그날 실적만 보여준다.
-                    // 라인 개수에 따라 라인별 실적 카드 높이가 들쭉날쭉해서(items-stretch) 두 카드 높이를 맞춘다.
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-stretch">
-                      <StatusCard
-                        uploadLine={uploadLine}
-                        elapsedDisplay={elapsedDisplay}
-                        gaugeStats={gaugeStats}
-                        gaugeInRange={gaugeInRange}
-                        targetVTRMin={targetVTRMin}
-                        targetVTRMax={targetVTRMax}
-                        targetCTRMin={targetCTRMin}
-                        targetCTRMax={targetCTRMax}
-                        isViewingToday={false}
-                        asOfLabel={viewDateAsOfLabel ?? undefined}
-                      />
-
-                      {lineEstimates.length > 1 && (
-                        <LineBreakdownCard lineEstimates={lineEstimates} vtrRange={vtrRange} ctrRange={ctrRange} isViewingToday={false} />
-                      )}
-                    </div>
+                    // 지난 날짜 조회 중에는 "남은 예산/예상 최종/추천"이 의미가 없고, VTR·CTR·목표범위·업로드 시각은
+                    // 이미 위 요약 줄에 다 나와 있으므로 별도 카드로 중복하지 않는다. 라인별 실적만 전체 너비로 보여준다
+                    // (StatusCard와 나란히 두면 라인 개수에 따라 높이가 안 맞아 카드 안에 빈 공간이 생기던 문제도 해결).
+                    lineEstimates.length > 1 && <LineBreakdownCard lineEstimates={lineEstimates} vtrRange={vtrRange} ctrRange={ctrRange} isViewingToday={false} />
                   )}
 
                   {/* 매체 상세 - 라인별 카드를 가로로 나란히 배치 (전체 너비) */}

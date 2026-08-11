@@ -18,8 +18,6 @@ interface StatusCardProps {
   targetVTRMax: number;
   targetCTRMin: number;
   targetCTRMax: number;
-  isViewingToday?: boolean;
-  asOfLabel?: string; // 과거 날짜 조회 시 "몇 시까지 업로드된 데이터인지" 표시 (없으면 기본 문구로 대체)
 }
 
 export default function StatusCard({
@@ -31,8 +29,6 @@ export default function StatusCard({
   targetVTRMax,
   targetCTRMin,
   targetCTRMax,
-  isViewingToday = true,
-  asOfLabel,
 }: StatusCardProps) {
   return (
     <div className={`${panel} p-4 h-full flex flex-col`}>
@@ -50,15 +46,9 @@ export default function StatusCard({
           </div>
         }
       >
-        {isViewingToday ? "금일 진행 현황" : "해당 날짜 효율"} {uploadLine !== "전체" && <span className="normal-case font-medium text-[#8792A6]">· {uploadLine}</span>}
+        금일 진행 현황 {uploadLine !== "전체" && <span className="normal-case font-medium text-[#8792A6]">· {uploadLine}</span>}
       </SectionTitle>
-      <div className="text-[11px] text-[#9AA4B5] mb-4">
-        {isViewingToday
-          ? `00:00 ~ ${String(elapsedDisplay).padStart(2, "0")}:00 현재`
-          : asOfLabel
-            ? `${asOfLabel} 업로드분 기준`
-            : "업로드 시각 기록 없음"}
-      </div>
+      <div className="text-[11px] text-[#9AA4B5] mb-4">{`00:00 ~ ${String(elapsedDisplay).padStart(2, "0")}:00 현재`}</div>
       <div className="grid grid-cols-2 gap-2.5">
         <Gauge label="VTR" value={gaugeStats.vtr} rangeMin={targetVTRMin} rangeMax={targetVTRMax} />
         <Gauge label="CTR" value={gaugeStats.ctr} rangeMin={targetCTRMin} rangeMax={targetCTRMax} />
