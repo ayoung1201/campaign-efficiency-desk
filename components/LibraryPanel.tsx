@@ -1,14 +1,16 @@
 "use client";
 
-import { RefObject } from "react";
-import { CheckCircle2, Database, Trash2, Upload } from "lucide-react";
+import { RefObject, useState } from "react";
+import { CheckCircle2, Database, Files, Trash2, Upload } from "lucide-react";
 import { fmt, profileMetrics } from "../lib/calculations";
 import { LibraryProfile } from "../lib/types";
 import { LIBRARY_LINE_OPTIONS } from "../lib/constants";
+import BatchUploadModal from "./BatchUploadModal";
 import SectionTitle from "./SectionTitle";
 import { btn, input, panel, theadRow } from "./ui";
 
 const ACCENT = "#0891B2";
+const CUSTOM = "__custom__";
 
 export interface LibrarySourceGroup {
   source: string;
@@ -19,6 +21,7 @@ export interface LibrarySourceGroup {
 interface LibraryPanelProps {
   librarySourceGroups: LibrarySourceGroup[];
   libraryLineSuggestions: string[];
+  libLineOptionsForCampaign: string[];
   libraryProfiles: LibraryProfile[];
   libViewLine: string;
   setLibViewLine: (l: string) => void;
@@ -31,11 +34,19 @@ interface LibraryPanelProps {
   libraryFileRef: RefObject<HTMLInputElement | null>;
   onUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onDeleteSource: (source: string) => void;
+  libBatchFileRef: RefObject<HTMLInputElement | null>;
+  onLibBatchFilesSelected: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  libBatchFiles: File[] | null;
+  libBatchAssignments: string[];
+  onChangeLibBatchAssignment: (index: number, line: string) => void;
+  onConfirmLibBatchUpload: () => void;
+  onCancelLibBatchUpload: () => void;
 }
 
 export default function LibraryPanel({
   librarySourceGroups,
   libraryLineSuggestions,
+  libLineOptionsForCampaign,
   libraryProfiles,
   libViewLine,
   setLibViewLine,
@@ -48,7 +59,17 @@ export default function LibraryPanel({
   libraryFileRef,
   onUpload,
   onDeleteSource,
+  libBatchFileRef,
+  onLibBatchFilesSelected,
+  libBatchFiles,
+  libBatchAssignments,
+  onChangeLibBatchAssignment,
+  onConfirmLibBatchUpload,
+  onCancelLibBatchUpload,
 }: LibraryPanelProps) {
+  // 목록에 없는 새 라인명을 직접 입력하고 싶을 때만 텍스트 입력으로 전환한다
+  const [customLineMode, setCustomLineMode] = useState(false);
+
   return (
     <div className={`${panel} p-5`}>
       <SectionTitle icon={Database} color={ACCENT}>
@@ -89,29 +110,76 @@ export default function LibraryPanel({
       <div className="flex gap-2 items-center flex-wrap mb-2">
         <input
           type="text"
+          list="lib-source-suggestions"
           value={libCampaignName}
           onChange={(e) => setLibCampaignName(e.target.value)}
           placeholder="캠페인명 입력"
           className={`${input} w-44`}
         />
-        <input
-          type="text"
-          list="lib-line-suggestions"
-          value={libUploadLine}
-          onChange={(e) => setLibUploadLine(e.target.value)}
-          placeholder="라인명 (예: 데스크탑_2039)"
-          className={`${input} w-44`}
-        />
+        <datalist id="lib-source-suggestions">
+          {librarySourceGroups.map((g) => (
+            <option key={g.source} value={g.source} />
+          ))}
+        </datalist>
+
+        {customLineMode ? (
+          <input
+            type="text"
+            list="lib-line-suggestions"
+            value={libUploadLine}
+            onChange={(e) => setLibUploadLine(e.target.value)}
+            placeholder="라인명 (예: 데스크탑_2039)"
+            className={`${input} w-44`}
+          />
+        ) : (
+          <select
+            value={libUploadLine}
+            onChange={(e) => {
+              if (e.target.value === CUSTOM) {
+                setCustomLineMode(true);
+                setLibUploadLine("");
+              } else {
+                setLibUploadLine(e.target.value);
+              }
+            }}
+            className={`${input} w-44`}
+          >
+            {libLineOptionsForCampaign.map((l) => (
+              <option key={l} value={l}>
+                {l}
+              </option>
+            ))}
+            <option value={CUSTOM}>+ 새 라인명 직접 입력</option>
+          </select>
+        )}
         <datalist id="lib-line-suggestions">
           {libraryLineSuggestions.map((l) => (
             <option key={l} value={l} />
           ))}
         </datalist>
+
         <button onClick={() => libraryFileRef.current?.click()} className={btn}>
           <Upload size={14} /> 종료 캠페인 리포트 업로드
         </button>
         <input ref={libraryFileRef} type="file" accept=".xlsx,.xls,.csv" onChange={onUpload} className="hidden" />
+
+        <button onClick={() => libBatchFileRef.current?.click()} className={btn}>
+          <Files size={14} /> 여러 파일 한번에 업로드
+        </button>
+        <input ref={libBatchFileRef} type="file" accept=".xlsx,.xls,.csv" multiple onChange={onLibBatchFilesSelected} className="hidden" />
       </div>
+      <div className="text-[11px] text-[#9AA4B5] mb-4">라인 선택은 위 캠페인명에 이미 올라간 라인이 있으면 그 라인들을, 없으면 표준 3분류를 먼저 보여줘요. 목록에 없는 라인은 “+ 새 라인명 직접 입력”으로 추가하세요.</div>
+
+      {libBatchFiles && (
+        <BatchUploadModal
+          files={libBatchFiles}
+          assignments={libBatchAssignments}
+          lineOptions={libLineOptionsForCampaign}
+          onChangeAssignment={onChangeLibBatchAssignment}
+          onConfirm={onConfirmLibBatchUpload}
+          onCancel={onCancelLibBatchUpload}
+        />
+      )}
 
       {libUploadSuccess && (
         <div className="flex items-center gap-1.5 text-[12.5px] text-[#0E8074] bg-[#E9F5F2] border border-[#BFE3DB] rounded-md px-3 py-2 mb-3">

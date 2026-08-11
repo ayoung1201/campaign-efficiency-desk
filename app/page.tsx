@@ -75,6 +75,8 @@ export default function Home() {
   const [libCampaignName, setLibCampaignName] = useState("");
   const [libUploadLine, setLibUploadLine] = useState(LIBRARY_LINE_OPTIONS[0]);
   const [libUploadSuccess, setLibUploadSuccess] = useState<{ source: string; line: string; mediaCount: number } | null>(null);
+  const [libBatchFiles, setLibBatchFiles] = useState<File[] | null>(null);
+  const [libBatchAssignments, setLibBatchAssignments] = useState<string[]>([]);
 
   // null이면 "오늘"을 자동으로 따라간다(날짜가 바뀌면 같이 넘어감). 과거 날짜를 직접 고르면 그 날짜에 고정된다.
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
@@ -82,6 +84,7 @@ export default function Home() {
   const mediaFileRef = useRef<HTMLInputElement>(null);
   const batchFileRef = useRef<HTMLInputElement>(null);
   const libraryFileRef = useRef<HTMLInputElement>(null);
+  const libBatchFileRef = useRef<HTMLInputElement>(null);
 
   const active = campaigns.find((c) => c.id === activeId) || null;
 
@@ -399,6 +402,73 @@ export default function Home() {
     await loadLibrary();
   };
 
+  // 캠페인 리포트 업로드와 동일하게, 라인마다 파일을 따로 올리는 게 번거로우니 한 번에 여러 파일을 골라서
+  // 각 파일에 라인을 지정하는 확인 모달을 거친 뒤 한꺼번에 저장한다.
+  const onLibBatchFilesSelected = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    e.target.value = "";
+    if (!files.length) return;
+    const source = libCampaignName.trim();
+    if (!source) {
+      setError("먼저 캠페인명을 입력해주세요.");
+      return;
+    }
+    setError("");
+    setLibUploadSuccess(null);
+    setLibBatchFiles(files);
+    const reversedLines = [...libLineOptionsForCampaign].reverse();
+    setLibBatchAssignments(files.map((_, i) => reversedLines[i] ?? ""));
+  };
+
+  const cancelLibBatchUpload = () => {
+    setLibBatchFiles(null);
+    setLibBatchAssignments([]);
+  };
+
+  const confirmLibBatchUpload = async () => {
+    if (!libBatchFiles) return;
+    const source = libCampaignName.trim();
+    if (!source) return;
+    setError("");
+    let totalMedia = 0;
+    const doneLines: string[] = [];
+    try {
+      for (let i = 0; i < libBatchFiles.length; i++) {
+        const line = libBatchAssignments[i];
+        if (!line) continue; // 라인을 지정하지 않은 파일은 건너뜀
+        const parsed = await parseExcelFile(libBatchFiles[i]);
+        if (!parsed) {
+          setError((prev) => (prev ? prev + ` / "${libBatchFiles[i].name}"(${line}) 인식 실패` : `"${libBatchFiles[i].name}"(${line}) 파일을 인식하지 못했어요.`));
+          continue;
+        }
+        await supabase.from("media_library").delete().eq("source", source).eq("line_label", line);
+        const rows = parsed.map((r) => ({
+          source,
+          line_label: line,
+          media: r.label,
+          report_date: todayStr(),
+          imps: r.imps,
+          view: r.view,
+          cclick: r.cclick,
+          spend: r.spend,
+        }));
+        const { error } = await supabase.from("media_library").insert(rows);
+        if (error) setError((prev) => (prev ? prev + ` / "${line}" 저장 실패: ${error.message}` : `"${line}" 저장 실패: ${error.message}`));
+        else {
+          totalMedia += rows.length;
+          doneLines.push(line);
+        }
+      }
+      if (doneLines.length > 0) setLibUploadSuccess({ source, line: doneLines.join(", "), mediaCount: totalMedia });
+      await loadLibrary();
+    } catch {
+      setError("여러 파일을 읽는 중 문제가 발생했어요.");
+    } finally {
+      setLibBatchFiles(null);
+      setLibBatchAssignments([]);
+    }
+  };
+
   const toggleMedia = async (latestRowId: string, nextIncluded: boolean) => {
     setAllMediaRows((prev) => prev.map((r) => (r.id === latestRowId ? { ...r, included: nextIncluded } : r)));
     const { error } = await supabase.from("media_reports").update({ included: nextIncluded }).eq("id", latestRowId);
@@ -446,6 +516,10 @@ export default function Home() {
     for (const r of library) if (r.line_label) set.add(r.line_label);
     return [...set].sort((a, b) => a.localeCompare(b, "ko"));
   }, [library]);
+  // 지금 입력 중인 캠페인명에 이미 올라간 라인이 있으면 그 라인들을, 없으면(신규 캠페인) 표준 3분류를
+  // 드롭다운으로 바로 보여준다 - 실제 캠페인 업로드처럼 라인을 목록에서 선택할 수 있도록.
+  const libSourceMatch = librarySourceGroups.find((g) => g.source === libCampaignName.trim());
+  const libLineOptionsForCampaign = [...new Set<string>([...(libSourceMatch?.lines ?? []), ...LIBRARY_LINE_OPTIONS])];
 
   // 노출 불가 매체를 검색/선택할 때 보여줄 후보 목록 - 이 캠페인에 실제로 올라온 매체 + 라이브러리 전체 매체
   const availableMediaForBan = useMemo(() => {
@@ -628,6 +702,14 @@ export default function Home() {
               libraryFileRef={libraryFileRef}
               onUpload={handleLibraryUpload}
               onDeleteSource={deleteLibrarySource}
+              libLineOptionsForCampaign={libLineOptionsForCampaign}
+              libBatchFileRef={libBatchFileRef}
+              onLibBatchFilesSelected={onLibBatchFilesSelected}
+              libBatchFiles={libBatchFiles}
+              libBatchAssignments={libBatchAssignments}
+              onChangeLibBatchAssignment={(i, line) => setLibBatchAssignments((prev) => prev.map((a, idx) => (idx === i ? line : a)))}
+              onConfirmLibBatchUpload={confirmLibBatchUpload}
+              onCancelLibBatchUpload={cancelLibBatchUpload}
             />
           ) : !active ? (
             <div className={`text-center text-[#8792A6] text-[13px] py-16 ${panel} border-dashed`}>캠페인을 먼저 추가해주세요.</div>
