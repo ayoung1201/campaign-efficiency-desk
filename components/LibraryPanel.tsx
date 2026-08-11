@@ -105,7 +105,7 @@ export default function LibraryPanel({
         </div>
       )}
 
-      <div className="flex gap-2 items-center flex-wrap mb-2">
+      <div className="flex gap-2 items-center flex-wrap mb-4">
         <input
           type="text"
           list="lib-source-suggestions"
