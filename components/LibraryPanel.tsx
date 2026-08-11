@@ -6,7 +6,7 @@ import { fmt, profileMetrics } from "../lib/calculations";
 import { LibraryProfile } from "../lib/types";
 import { LIBRARY_LINE_OPTIONS } from "../lib/constants";
 import SectionTitle from "./SectionTitle";
-import { btn, panel, theadRow } from "./ui";
+import { btn, input, panel, theadRow } from "./ui";
 
 const ACCENT = "#0891B2";
 
@@ -15,6 +15,10 @@ interface LibraryPanelProps {
   libraryProfiles: LibraryProfile[];
   libViewLine: string;
   setLibViewLine: (l: string) => void;
+  libCampaignName: string;
+  setLibCampaignName: (v: string) => void;
+  libUploadLine: string;
+  setLibUploadLine: (l: string) => void;
   error: string;
   libraryFileRef: RefObject<HTMLInputElement | null>;
   onUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
@@ -25,6 +29,10 @@ export default function LibraryPanel({
   libraryProfiles,
   libViewLine,
   setLibViewLine,
+  libCampaignName,
+  setLibCampaignName,
+  libUploadLine,
+  setLibUploadLine,
   error,
   libraryFileRef,
   onUpload,
@@ -35,12 +43,12 @@ export default function LibraryPanel({
         매체별 평균 효율
       </SectionTitle>
       <div className="text-[12px] text-[#8792A6] -mt-2 mb-4">
-        일별 매체 리포트를 업로드하면 매체명·채널·Imp·View·Click·소진광고비를 자동으로 읽어서 쌓아요. 같은 날짜를 다시 올리면 그 날짜만 덮어쓰고, 다른 날짜는 계속 쌓여서 여러 날 평균이 됩니다.
+        이미 종료된 캠페인의 매체 리포트를 라인별로 업로드하면 매체명·Imp·View·Click·소진광고비를 자동으로 읽어서 쌓아요. 리포트 파일 자체엔 라인 구분이 없어서, 업로드할 때 캠페인명과 라인을 직접 지정해주세요(캠페인 하나에 라인마다 파일을 따로 업로드). 같은 캠페인의 같은 라인을 다시 올리면 그 조합만 덮어쓰고, 나머지는 계속 쌓여서 여러 캠페인 평균이 됩니다.
       </div>
 
       {librarySources.length > 0 && (
         <div className="flex items-center flex-wrap gap-1.5 mb-4">
-          <span className="text-[11px] font-semibold text-[#8792A6] mr-1">포함된 날짜 ({librarySources.length}일치)</span>
+          <span className="text-[11px] font-semibold text-[#8792A6] mr-1">포함된 캠페인 ({librarySources.length}건)</span>
           {librarySources.map((s) => (
             <span key={s} className="text-[11.5px] px-2 py-0.5 rounded-full bg-[#F4F6F9] border border-[#E1E5EC] text-[#4A5568]">
               {s}
@@ -50,8 +58,22 @@ export default function LibraryPanel({
       )}
 
       <div className="flex gap-2 items-center flex-wrap mb-5">
+        <input
+          type="text"
+          value={libCampaignName}
+          onChange={(e) => setLibCampaignName(e.target.value)}
+          placeholder="캠페인명 입력"
+          className={`${input} w-44`}
+        />
+        <select value={libUploadLine} onChange={(e) => setLibUploadLine(e.target.value)} className={`${input} border-none bg-[#F4F6F9]`}>
+          {LIBRARY_LINE_OPTIONS.map((l) => (
+            <option key={l} value={l}>
+              {l}
+            </option>
+          ))}
+        </select>
         <button onClick={() => libraryFileRef.current?.click()} className={btn}>
-          <Upload size={14} /> 일별 리포트 업로드
+          <Upload size={14} /> 종료 캠페인 리포트 업로드
         </button>
         <input ref={libraryFileRef} type="file" accept=".xlsx,.xls,.csv" onChange={onUpload} className="hidden" />
       </div>
@@ -79,7 +101,7 @@ export default function LibraryPanel({
                 <tr className={theadRow}>
                   <th className="text-left py-2.5 px-3 font-medium">매체</th>
                   {libViewLine === "전체" && <th className="text-left py-2.5 px-3 font-medium">라인</th>}
-                  <th className="text-right py-2.5 px-3 font-medium">일수</th>
+                  <th className="text-right py-2.5 px-3 font-medium">캠페인 수</th>
                   <th className="text-right py-2.5 px-3 font-medium">평균 VTR</th>
                   <th className="text-right py-2.5 px-3 font-medium">평균 CTR</th>
                 </tr>

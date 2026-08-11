@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "../lib/supabaseClient";
 import { Campaign, MediaLibraryRow, MediaRow } from "../lib/types";
-import { parseExcelFile, parseMasterExcelFile } from "../lib/xlsxParse";
+import { parseExcelFile } from "../lib/xlsxParse";
 import {
   buildLibraryProfiles,
   buildMediaProfiles,
@@ -19,7 +19,7 @@ import {
   todayRowsOnly,
   todayStr,
 } from "../lib/calculations";
-import { CANONICAL_ORDER } from "../lib/constants";
+import { CANONICAL_ORDER, LIBRARY_LINE_OPTIONS } from "../lib/constants";
 import Sidebar from "../components/Sidebar";
 import NewCampaignForm from "../components/NewCampaignForm";
 import LineManagerModal from "../components/LineManagerModal";
@@ -71,6 +71,9 @@ export default function Home() {
   const [library, setLibrary] = useState<MediaLibraryRow[]>([]);
   const [showLibraryPanel, setShowLibraryPanel] = useState(false);
   const [libViewLine, setLibViewLine] = useState("전체");
+  // 캠페인 상세 리포트 파일 자체엔 라인 정보가 없어서(매체 리포트 업로드와 동일하게) 업로드 시 캠페인명 + 라인을 직접 지정한다.
+  const [libCampaignName, setLibCampaignName] = useState("");
+  const [libUploadLine, setLibUploadLine] = useState(LIBRARY_LINE_OPTIONS[0]);
 
   // null이면 "오늘"을 자동으로 따라간다(날짜가 바뀌면 같이 넘어감). 과거 날짜를 직접 고르면 그 날짜에 고정된다.
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
@@ -338,19 +341,25 @@ export default function Home() {
     const file = e.target.files?.[0];
     e.target.value = "";
     if (!file) return;
+    const source = libCampaignName.trim();
+    if (!source) {
+      setError("먼저 캠페인명을 입력해주세요.");
+      return;
+    }
     try {
-      const parsed = await parseMasterExcelFile(file);
+      // 매체 리포트 업로드와 동일한 형식(파일 자체엔 라인 정보 없음) - 지정한 캠페인명+라인으로 저장한다.
+      // 같은 캠페인의 같은 라인을 다시 올리면 그 조합만 덮어쓰고, 다른 라인/캠페인은 그대로 유지된다.
+      const parsed = await parseExcelFile(file);
       if (!parsed) {
-        setError("일별 리포트를 인식하지 못했어요. '미디어명', '채널', 'Imp' 컬럼을 확인해주세요.");
+        setError("리포트를 인식하지 못했어요. '매체', 'Imps' 컬럼을 확인해주세요.");
         return;
       }
-      // 같은 날짜 데이터는 덮어쓰고(재업로드해도 안전), 다른 날짜는 계속 쌓여서 여러 날 평균이 된다
-      await supabase.from("media_library").delete().eq("source", parsed.date);
-      const rows = parsed.rows.map((r) => ({
-        source: parsed.date,
-        line_label: r.line,
-        media: r.media,
-        report_date: parsed.date,
+      await supabase.from("media_library").delete().eq("source", source).eq("line_label", libUploadLine);
+      const rows = parsed.map((r) => ({
+        source,
+        line_label: libUploadLine,
+        media: r.label,
+        report_date: todayStr(),
         imps: r.imps,
         view: r.view,
         cclick: r.cclick,
@@ -560,6 +569,10 @@ export default function Home() {
               libraryProfiles={libraryProfiles}
               libViewLine={libViewLine}
               setLibViewLine={setLibViewLine}
+              libCampaignName={libCampaignName}
+              setLibCampaignName={setLibCampaignName}
+              libUploadLine={libUploadLine}
+              setLibUploadLine={setLibUploadLine}
               error={error}
               libraryFileRef={libraryFileRef}
               onUpload={handleLibraryUpload}
