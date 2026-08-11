@@ -8,12 +8,13 @@ interface StatProps {
   label: string;
   value: string;
   accent?: string;
+  bg?: string;
   sub?: string;
 }
 
-function Stat({ label, value, accent, sub }: StatProps) {
+function Stat({ label, value, accent, bg, sub }: StatProps) {
   return (
-    <div className="flex flex-col">
+    <div className={`flex flex-col ${bg ? "px-3 py-1.5 rounded-lg" : ""}`} style={bg ? { backgroundColor: bg } : undefined}>
       <div className="text-[10.5px] font-semibold uppercase tracking-wide text-[#9AA4B5]">{label}</div>
       <div className="text-[18px] font-bold tabular-nums leading-tight" style={accent ? { color: accent } : undefined}>
         {value}
@@ -72,24 +73,20 @@ export default function SummaryBar({
   const projAccent = statusMet ? "#0E8074" : "#C1442B";
 
   if (!isViewingToday) {
+    const rangeBg = todayStatusMet ? "#EAF7F4" : "#FCEEEC";
     return (
-      <div className={`${panel} px-4 py-3 flex items-center gap-6 flex-wrap`}>
-        <div className="flex items-center gap-4">
-          <Stat label="VTR" value={`${fmt(today.vtr)}%`} accent={todayAccent} sub={vtrRange ? `목표 ${fmt(vtrRange.min)}~${fmt(vtrRange.max)}%` : undefined} />
-          <Stat label="CTR" value={`${fmt(today.ctr)}%`} accent={todayAccent} sub={ctrRange ? `목표 ${fmt(ctrRange.min)}~${fmt(ctrRange.max)}%` : undefined} />
-          <Badge label="해당 날짜" met={todayStatusMet} />
+      <div className={`${panel} px-4 py-3 flex items-center gap-3 flex-wrap`}>
+        <div className="flex items-center gap-2">
+          <Stat label="VTR" value={`${fmt(today.vtr)}%`} accent={todayAccent} bg={rangeBg} sub={vtrRange ? `목표 ${fmt(vtrRange.min)}~${fmt(vtrRange.max)}%` : undefined} />
+          <Stat label="CTR" value={`${fmt(today.ctr)}%`} accent={todayAccent} bg={rangeBg} sub={ctrRange ? `목표 ${fmt(ctrRange.min)}~${fmt(ctrRange.max)}%` : undefined} />
         </div>
+        <Badge label="해당 날짜" met={todayStatusMet} />
         <div className="w-px self-stretch bg-[#EEF0F4]" />
         <div className="flex items-center gap-4">
           <Stat label="Imps." value={fmtInt(today.imps)} />
           <Stat label="소진액" value={`${fmtInt(today.spend)}원`} />
         </div>
-        {asOfLabel && (
-          <>
-            <div className="w-px self-stretch bg-[#EEF0F4]" />
-            <div className="text-[11.5px] text-[#9AA4B5]">{asOfLabel} 업로드분 기준</div>
-          </>
-        )}
+        {asOfLabel && <div className="ml-auto text-[11.5px] text-[#9AA4B5]">{asOfLabel} 업로드분 기준</div>}
       </div>
     );
   }
