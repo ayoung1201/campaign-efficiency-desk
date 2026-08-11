@@ -29,7 +29,7 @@ export default function ProjectionCard({
   targetCTRMax,
 }: ProjectionCardProps) {
   return (
-    <div className={`${panel} p-4`}>
+    <div className={`${panel} p-4 h-full flex flex-col`}>
       <SectionTitle
         icon={TrendingUp}
         color={ACCENT}
@@ -47,11 +47,11 @@ export default function ProjectionCard({
         예상 최종 효율
       </SectionTitle>
       <div className="text-[11px] text-[#9AA4B5] mb-4">지금 매체 상세에서 체크한 구성대로 남은 예산을 쓰면 오늘 마감 시점 예상치</div>
-      <div className="flex flex-col gap-2.5">
+      <div className="grid grid-cols-2 gap-2.5">
         <Gauge label="VTR" value={currentProjection.vtr} rangeMin={targetVTRMin} rangeMax={targetVTRMax} />
         <Gauge label="CTR" value={currentProjection.ctr} rangeMin={targetCTRMin} rangeMax={targetCTRMax} />
       </div>
-      <div className="flex justify-center gap-8 text-[13px] pt-4 mt-4 border-t border-[#EEF0F4]">
+      <div className="flex justify-center gap-8 text-[13px] pt-4 mt-auto border-t border-[#EEF0F4]">
         <div>
           <div className={label}>예상 Imps.</div>
           <div className="font-bold text-[16px] tabular-nums">{fmtInt(currentProjection.imps)}</div>

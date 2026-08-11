@@ -32,7 +32,7 @@ export default function LineBreakdownCard({ lineEstimates, vtrRange, ctrRange, i
   });
 
   return (
-    <div className={`${panel} p-4`}>
+    <div className={`${panel} p-4 h-full flex flex-col`}>
       <SectionTitle icon={BarChart3} color={ACCENT}>
         {isViewingToday ? "라인별 오늘 실적" : "라인별 실적"}
       </SectionTitle>

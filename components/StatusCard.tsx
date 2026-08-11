@@ -35,7 +35,7 @@ export default function StatusCard({
   asOfLabel,
 }: StatusCardProps) {
   return (
-    <div className={`${panel} p-4`}>
+    <div className={`${panel} p-4 h-full flex flex-col`}>
       <SectionTitle
         icon={Activity}
         color={ACCENT}
@@ -59,11 +59,11 @@ export default function StatusCard({
             ? `${asOfLabel} 업로드분 기준`
             : "업로드 시각 기록 없음"}
       </div>
-      <div className="flex flex-col gap-2.5">
+      <div className="grid grid-cols-2 gap-2.5">
         <Gauge label="VTR" value={gaugeStats.vtr} rangeMin={targetVTRMin} rangeMax={targetVTRMax} />
         <Gauge label="CTR" value={gaugeStats.ctr} rangeMin={targetCTRMin} rangeMax={targetCTRMax} />
       </div>
-      <div className="flex justify-center gap-8 text-[13px] pt-4 mt-4 border-t border-[#EEF0F4]">
+      <div className="flex justify-center gap-8 text-[13px] pt-4 mt-auto border-t border-[#EEF0F4]">
         <div>
           <div className={label}>Imps.</div>
           <div className="font-bold text-[16px] tabular-nums">{fmtInt(gaugeStats.imps)}</div>

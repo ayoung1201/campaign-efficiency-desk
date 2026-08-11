@@ -707,8 +707,8 @@ export default function Home() {
 
                   {isViewingToday ? (
                     <>
-                      {/* 자세히 보기 카드들 - 높이가 비슷한 카드끼리 짝지어서 빈 공간 없이 배치 */}
-                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
+                      {/* 자세히 보기 카드들 - 카드 높이를 서로 맞춰서(items-stretch) 빈 공간 없이 배치 */}
+                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-stretch">
                         <StatusCard
                           uploadLine={uploadLine}
                           elapsedDisplay={elapsedDisplay}
@@ -744,8 +744,9 @@ export default function Home() {
                       <RecommendationsCard recommendations={recommendations} statusMet={statusMet} libraryByKey={libraryByKey} />
                     </>
                   ) : (
-                    // 지난 날짜 조회 중에는 "남은 예산/예상 최종/추천"이 의미가 없으므로, 그날 실적만 보여준다
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
+                    // 지난 날짜 조회 중에는 "남은 예산/예상 최종/추천"이 의미가 없으므로, 그날 실적만 보여준다.
+                    // 라인 개수에 따라 라인별 실적 카드 높이가 들쭉날쭉해서(items-stretch) 두 카드 높이를 맞춘다.
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-stretch">
                       <StatusCard
                         uploadLine={uploadLine}
                         elapsedDisplay={elapsedDisplay}
