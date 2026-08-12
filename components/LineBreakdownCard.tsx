@@ -27,14 +27,17 @@ export function LineChips({ lineEstimates, vtrRange, ctrRange }: { lineEstimates
   });
 
   return (
-    <div className="flex flex-wrap gap-2">
+    <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-2">
       {sorted.map((le) => {
         const canon = canonicalLine(le.line);
         const color = CANON_COLOR[canon] ?? CANON_COLOR_FALLBACK;
         const vtrOk = inRange(le.vtr, vtrRange);
         const ctrOk = inRange(le.ctr, ctrRange);
         return (
-          <div key={le.line} className="flex items-center gap-2 px-2.5 py-1.5 rounded-md border border-[#E1E5EC] bg-[#FAFBFC] text-[12px]">
+          <div
+            key={le.line}
+            className="flex items-center gap-2 px-2.5 py-1.5 rounded-md border border-[#E1E5EC] bg-[#FAFBFC] text-[12px] w-fit max-w-full"
+          >
             <span className="inline-block w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: color }} />
             <span className="font-medium text-[#334155] whitespace-nowrap">{le.line}</span>
             {le.line !== canon && <span className="text-[10.5px] text-[#9AA4B5] whitespace-nowrap">· {canon}</span>}

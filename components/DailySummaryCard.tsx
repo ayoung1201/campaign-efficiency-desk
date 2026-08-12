@@ -24,10 +24,18 @@ interface DailySummaryCardProps {
 export default function DailySummaryCard({ today, vtrRange, ctrRange, dateLabel, asOfLabel, lineEstimates }: DailySummaryCardProps) {
   return (
     <div className={`${panel} p-5`}>
-      <div className="flex items-start justify-between flex-wrap gap-3 mb-4">
-        <SectionTitle icon={Activity} color={ACCENT}>
-          {dateLabel} 효율
-        </SectionTitle>
+      <SectionTitle icon={Activity} color={ACCENT}>
+        {dateLabel} 효율
+      </SectionTitle>
+
+      {/* 게이지와 부가 지표(Imps./소진액/업로드)를 한 덩어리로 묶어서, 전체 효율에 관한 정보가
+          한눈에 같이 읽히게 한다 (따로 떨어진 구석에 붕 떠 보이지 않도록). */}
+      <div className="flex items-stretch flex-wrap gap-4 mt-3 mb-5">
+        <div className="grid grid-cols-2 gap-3 max-w-md">
+          <Gauge label="VTR" value={today.vtr} rangeMin={vtrRange.min} rangeMax={vtrRange.max} />
+          <Gauge label="CTR" value={today.ctr} rangeMin={ctrRange.min} rangeMax={ctrRange.max} />
+        </div>
+        <div className="w-px bg-[#EEF0F4]" />
         <div className="flex items-center gap-5">
           <div>
             <div className={label}>Imps.</div>
@@ -44,11 +52,6 @@ export default function DailySummaryCard({ today, vtrRange, ctrRange, dateLabel,
             </div>
           )}
         </div>
-      </div>
-
-      <div className="grid grid-cols-2 gap-3 max-w-md mb-5">
-        <Gauge label="VTR" value={today.vtr} rangeMin={vtrRange.min} rangeMax={vtrRange.max} />
-        <Gauge label="CTR" value={today.ctr} rangeMin={ctrRange.min} rangeMax={ctrRange.max} />
       </div>
 
       {lineEstimates.length > 1 && (
