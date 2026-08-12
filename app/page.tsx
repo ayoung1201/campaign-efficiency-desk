@@ -29,6 +29,7 @@ import UploadToolbar from "../components/UploadToolbar";
 import BatchUploadModal from "../components/BatchUploadModal";
 import CampaignHeader from "../components/CampaignHeader";
 import SummaryBar from "../components/SummaryBar";
+import DailySummaryCard from "../components/DailySummaryCard";
 import StatusCard from "../components/StatusCard";
 import ProjectionCard from "../components/ProjectionCard";
 import BudgetCard from "../components/BudgetCard";
@@ -797,23 +798,18 @@ export default function Home() {
                 </div>
               ) : (
                 <div className="flex flex-col gap-4">
-                  {/* 스크롤 없이 바로 보이는 핵심 요약 줄 */}
-                  <SummaryBar
-                    today={today}
-                    currentProjection={currentProjection}
-                    todayStatusMet={todayStatusMet}
-                    statusMet={statusMet}
-                    remainingBudget={remainingBudget}
-                    remainingHrs={remainingHrs}
-                    isViewingToday={isViewingToday}
-                    vtrRange={vtrRange}
-                    ctrRange={ctrRange}
-                    asOfLabel={viewDateAsOfLabel}
-                    dateLabel={viewDateLabel}
-                  />
-
                   {isViewingToday ? (
                     <>
+                      {/* 스크롤 없이 바로 보이는 핵심 요약 줄 */}
+                      <SummaryBar
+                        today={today}
+                        currentProjection={currentProjection}
+                        todayStatusMet={todayStatusMet}
+                        statusMet={statusMet}
+                        remainingBudget={remainingBudget}
+                        remainingHrs={remainingHrs}
+                      />
+
                       {/* 자세히 보기 카드들 - 카드 높이를 서로 맞춰서(items-stretch) 빈 공간 없이 배치 */}
                       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-stretch">
                         <StatusCard
@@ -851,10 +847,16 @@ export default function Home() {
                       <RecommendationsCard recommendations={recommendations} statusMet={statusMet} libraryByKey={libraryByKey} />
                     </>
                   ) : (
-                    // 지난 날짜 조회 중에는 "남은 예산/예상 최종/추천"이 의미가 없고, VTR·CTR·목표범위·업로드 시각은
-                    // 이미 위 요약 줄에 다 나와 있으므로 별도 카드로 중복하지 않는다. 라인별 실적만 전체 너비로 보여준다
-                    // (StatusCard와 나란히 두면 라인 개수에 따라 높이가 안 맞아 카드 안에 빈 공간이 생기던 문제도 해결).
-                    lineEstimates.length > 1 && <LineBreakdownCard lineEstimates={lineEstimates} vtrRange={vtrRange} ctrRange={ctrRange} isViewingToday={false} />
+                    // 지난 날짜 조회 중에는 "남은 예산/예상 최종/추천"이 의미가 없다. 그날 전체 효율과 라인별 실적을
+                    // 카드 하나로 묶어서(위계: 전체 -> 라인별) 여러 박스가 따로 떠 있는 느낌 없이 한 번에 보여준다.
+                    <DailySummaryCard
+                      today={today}
+                      vtrRange={vtrRange}
+                      ctrRange={ctrRange}
+                      dateLabel={viewDateLabel}
+                      asOfLabel={viewDateAsOfLabel}
+                      lineEstimates={lineEstimates}
+                    />
                   )}
 
                   {/* 매체 상세 - 라인별 카드를 가로로 나란히 배치 (전체 너비) */}
