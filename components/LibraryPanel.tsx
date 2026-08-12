@@ -6,6 +6,7 @@ import { fmt, profileMetrics } from "../lib/calculations";
 import { LibraryProfile } from "../lib/types";
 import { LIBRARY_LINE_OPTIONS } from "../lib/constants";
 import BatchUploadModal from "./BatchUploadModal";
+import FileDropZone from "./FileDropZone";
 import SectionTitle from "./SectionTitle";
 import { btn, input, panel, theadRow } from "./ui";
 
@@ -41,6 +42,7 @@ interface LibraryPanelProps {
   onChangeLibBatchAssignment: (index: number, line: string) => void;
   onConfirmLibBatchUpload: () => void;
   onCancelLibBatchUpload: () => void;
+  onFilesDropped: (files: File[]) => void;
 }
 
 export default function LibraryPanel({
@@ -66,6 +68,7 @@ export default function LibraryPanel({
   onChangeLibBatchAssignment,
   onConfirmLibBatchUpload,
   onCancelLibBatchUpload,
+  onFilesDropped,
 }: LibraryPanelProps) {
   // 목록에 없는 새 라인명을 직접 입력하고 싶을 때만 텍스트 입력으로 전환한다
   const [customLineMode, setCustomLineMode] = useState(false);
@@ -105,67 +108,69 @@ export default function LibraryPanel({
         </div>
       )}
 
-      <div className="flex gap-2 items-center flex-wrap mb-4">
-        <input
-          type="text"
-          list="lib-source-suggestions"
-          value={libCampaignName}
-          onChange={(e) => setLibCampaignName(e.target.value)}
-          placeholder="캠페인명 입력"
-          className={`${input} w-44`}
-        />
-        <datalist id="lib-source-suggestions">
-          {librarySourceGroups.map((g) => (
-            <option key={g.source} value={g.source} />
-          ))}
-        </datalist>
-
-        {customLineMode ? (
+      <FileDropZone onFilesDropped={onFilesDropped} className="mb-4">
+        <div className="flex gap-2 items-center flex-wrap">
           <input
             type="text"
-            list="lib-line-suggestions"
-            value={libUploadLine}
-            onChange={(e) => setLibUploadLine(e.target.value)}
-            placeholder="라인명 (예: 데스크탑_2039)"
+            list="lib-source-suggestions"
+            value={libCampaignName}
+            onChange={(e) => setLibCampaignName(e.target.value)}
+            placeholder="캠페인명 입력"
             className={`${input} w-44`}
           />
-        ) : (
-          <select
-            value={libUploadLine}
-            onChange={(e) => {
-              if (e.target.value === CUSTOM) {
-                setCustomLineMode(true);
-                setLibUploadLine("");
-              } else {
-                setLibUploadLine(e.target.value);
-              }
-            }}
-            className={`${input} w-44`}
-          >
-            {libLineOptionsForCampaign.map((l) => (
-              <option key={l} value={l}>
-                {l}
-              </option>
+          <datalist id="lib-source-suggestions">
+            {librarySourceGroups.map((g) => (
+              <option key={g.source} value={g.source} />
             ))}
-            <option value={CUSTOM}>+ 새 라인명 직접 입력</option>
-          </select>
-        )}
-        <datalist id="lib-line-suggestions">
-          {libraryLineSuggestions.map((l) => (
-            <option key={l} value={l} />
-          ))}
-        </datalist>
+          </datalist>
 
-        <button onClick={() => libraryFileRef.current?.click()} className={btn}>
-          <Upload size={14} /> 종료 캠페인 리포트 업로드
-        </button>
-        <input ref={libraryFileRef} type="file" accept=".xlsx,.xls,.csv" onChange={onUpload} className="hidden" />
+          {customLineMode ? (
+            <input
+              type="text"
+              list="lib-line-suggestions"
+              value={libUploadLine}
+              onChange={(e) => setLibUploadLine(e.target.value)}
+              placeholder="라인명 (예: 데스크탑_2039)"
+              className={`${input} w-44`}
+            />
+          ) : (
+            <select
+              value={libUploadLine}
+              onChange={(e) => {
+                if (e.target.value === CUSTOM) {
+                  setCustomLineMode(true);
+                  setLibUploadLine("");
+                } else {
+                  setLibUploadLine(e.target.value);
+                }
+              }}
+              className={`${input} w-44`}
+            >
+              {libLineOptionsForCampaign.map((l) => (
+                <option key={l} value={l}>
+                  {l}
+                </option>
+              ))}
+              <option value={CUSTOM}>+ 새 라인명 직접 입력</option>
+            </select>
+          )}
+          <datalist id="lib-line-suggestions">
+            {libraryLineSuggestions.map((l) => (
+              <option key={l} value={l} />
+            ))}
+          </datalist>
 
-        <button onClick={() => libBatchFileRef.current?.click()} className={btn}>
-          <Files size={14} /> 여러 파일 한번에 업로드
-        </button>
-        <input ref={libBatchFileRef} type="file" accept=".xlsx,.xls,.csv" multiple onChange={onLibBatchFilesSelected} className="hidden" />
-      </div>
+          <button onClick={() => libraryFileRef.current?.click()} className={btn}>
+            <Upload size={14} /> 종료 캠페인 리포트 업로드
+          </button>
+          <input ref={libraryFileRef} type="file" accept=".xlsx,.xls,.csv" onChange={onUpload} className="hidden" />
+
+          <button onClick={() => libBatchFileRef.current?.click()} className={btn}>
+            <Files size={14} /> 여러 파일 한번에 업로드
+          </button>
+          <input ref={libBatchFileRef} type="file" accept=".xlsx,.xls,.csv" multiple onChange={onLibBatchFilesSelected} className="hidden" />
+        </div>
+      </FileDropZone>
       {libBatchFiles && (
         <BatchUploadModal
           files={libBatchFiles}

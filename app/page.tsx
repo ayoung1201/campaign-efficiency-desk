@@ -261,10 +261,9 @@ export default function Home() {
     setShowBannedMediaManager(false);
   };
 
-  const handleMediaUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    e.target.value = "";
-    if (!file || !active) return;
+  // 파일 선택창으로 고르든, 드래그해서 놓든 결국 같은 로직을 타야 해서 핵심 처리부를 따로 뺐다.
+  const processMediaFile = async (file: File) => {
+    if (!active) return;
     try {
       const parsed = await parseExcelFile(file);
       if (!parsed) {
@@ -295,14 +294,19 @@ export default function Home() {
     }
   };
 
+  const handleMediaUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    await processMediaFile(file);
+  };
+
   // 브라우저 파일 선택창은 사용자가 클릭한 순서를 보장해주지 않는다(보통 탐색기 정렬 순서로 옴).
   // 그래서 파일을 고르자마자 바로 업로드하지 않고, 각 파일에 라인을 직접 지정하는 확인 모달을 띄운다.
   const [batchFiles, setBatchFiles] = useState<File[] | null>(null);
   const [batchAssignments, setBatchAssignments] = useState<string[]>([]);
 
-  const onBatchFilesSelected = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files || []);
-    e.target.value = "";
+  const startBatchFiles = (files: File[]) => {
     if (!files.length || !active) return;
     const targetLines = (active.lines || []).filter((l) => l && l !== "전체");
     if (targetLines.length === 0) {
@@ -313,6 +317,19 @@ export default function Home() {
     setBatchFiles(files);
     const reversedLines = [...targetLines].reverse();
     setBatchAssignments(files.map((_, i) => reversedLines[i] ?? ""));
+  };
+
+  const onBatchFilesSelected = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    e.target.value = "";
+    startBatchFiles(files);
+  };
+
+  // 파일 1개를 드래그해서 놓으면 지금 선택된 라인으로 바로 업로드, 여러 개면 라인 매칭 확인 모달로.
+  const handleMediaFilesDropped = (files: File[]) => {
+    if (files.length === 0) return;
+    if (files.length === 1) processMediaFile(files[0]);
+    else startBatchFiles(files);
   };
 
   const cancelBatchUpload = () => {
@@ -357,10 +374,7 @@ export default function Home() {
     }
   };
 
-  const handleLibraryUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    e.target.value = "";
-    if (!file) return;
+  const processLibraryFile = async (file: File) => {
     const source = libCampaignName.trim();
     const line = libUploadLine.trim();
     setLibUploadSuccess(null);
@@ -404,6 +418,13 @@ export default function Home() {
     }
   };
 
+  const handleLibraryUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    await processLibraryFile(file);
+  };
+
   // 라이브러리에 잘못 올렸거나 다시 올리고 싶을 때 캠페인(source) 단위로 통째로 지운다 (그 캠페인의 모든 라인 포함)
   const deleteLibrarySource = async (source: string) => {
     const ok = window.confirm(`"${source}" 캠페인의 라이브러리 데이터를 전부 삭제할까요?\n(모든 라인 포함, 되돌릴 수 없습니다)`);
@@ -420,9 +441,7 @@ export default function Home() {
 
   // 캠페인 리포트 업로드와 동일하게, 라인마다 파일을 따로 올리는 게 번거로우니 한 번에 여러 파일을 골라서
   // 각 파일에 라인을 지정하는 확인 모달을 거친 뒤 한꺼번에 저장한다.
-  const onLibBatchFilesSelected = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files || []);
-    e.target.value = "";
+  const startLibBatchFiles = (files: File[]) => {
     if (!files.length) return;
     const source = libCampaignName.trim();
     if (!source) {
@@ -434,6 +453,19 @@ export default function Home() {
     setLibBatchFiles(files);
     const reversedLines = [...libLineOptionsForCampaign].reverse();
     setLibBatchAssignments(files.map((_, i) => reversedLines[i] ?? ""));
+  };
+
+  const onLibBatchFilesSelected = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    e.target.value = "";
+    startLibBatchFiles(files);
+  };
+
+  // 파일 1개를 드래그해서 놓으면 지금 입력된 캠페인명+라인으로 바로 업로드, 여러 개면 라인 매칭 모달로.
+  const handleLibraryFilesDropped = (files: File[]) => {
+    if (files.length === 0) return;
+    if (files.length === 1) processLibraryFile(files[0]);
+    else startLibBatchFiles(files);
   };
 
   const cancelLibBatchUpload = () => {
@@ -755,6 +787,7 @@ export default function Home() {
               onChangeLibBatchAssignment={(i, line) => setLibBatchAssignments((prev) => prev.map((a, idx) => (idx === i ? line : a)))}
               onConfirmLibBatchUpload={confirmLibBatchUpload}
               onCancelLibBatchUpload={cancelLibBatchUpload}
+              onFilesDropped={handleLibraryFilesDropped}
             />
           ) : !active ? (
             <div className={`text-center text-[#8792A6] text-[13px] py-16 ${panel} border-dashed`}>캠페인을 먼저 추가해주세요.</div>
@@ -772,6 +805,7 @@ export default function Home() {
                 onOpenBannedMediaManager={openBannedMediaManager}
                 batchFileRef={batchFileRef}
                 onBatchFilesSelected={onBatchFilesSelected}
+                onFilesDropped={handleMediaFilesDropped}
               />
 
               {batchFiles && (
