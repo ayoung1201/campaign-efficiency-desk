@@ -51,7 +51,7 @@ export default function ProjectionCard({
         <Gauge label="VTR" value={currentProjection.vtr} rangeMin={targetVTRMin} rangeMax={targetVTRMax} />
         <Gauge label="CTR" value={currentProjection.ctr} rangeMin={targetCTRMin} rangeMax={targetCTRMax} />
       </div>
-      <div className="flex justify-center gap-8 text-[13px] pt-4 mt-auto border-t border-[#EEF0F4]">
+      <div className="flex justify-center gap-8 text-[13px] pt-4 mt-4 border-t border-[#EEF0F4]">
         <div>
           <div className={label}>예상 Imps.</div>
           <div className="font-bold text-[16px] tabular-nums">{fmtInt(currentProjection.imps)}</div>

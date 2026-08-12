@@ -53,7 +53,7 @@ export default function StatusCard({
         <Gauge label="VTR" value={gaugeStats.vtr} rangeMin={targetVTRMin} rangeMax={targetVTRMax} />
         <Gauge label="CTR" value={gaugeStats.ctr} rangeMin={targetCTRMin} rangeMax={targetCTRMax} />
       </div>
-      <div className="flex justify-center gap-8 text-[13px] pt-4 mt-auto border-t border-[#EEF0F4]">
+      <div className="flex justify-center gap-8 text-[13px] pt-4 mt-4 border-t border-[#EEF0F4]">
         <div>
           <div className={label}>Imps.</div>
           <div className="font-bold text-[16px] tabular-nums">{fmtInt(gaugeStats.imps)}</div>
