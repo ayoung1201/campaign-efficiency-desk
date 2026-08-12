@@ -202,6 +202,21 @@ export default function Home() {
     setError("");
   };
 
+  // 캠페인 전체가 아니라 특정 날짜(오늘 포함)에 업로드된 데이터만 지우고 싶을 때
+  const deleteDateData = async (date: string) => {
+    if (!active) return;
+    const ok = window.confirm(`"${active.name}" 캠페인의 ${date} 리포트 데이터를 삭제할까요?\n되돌릴 수 없습니다.`);
+    if (!ok) return;
+    const { error } = await supabase.from("media_reports").delete().eq("campaign_id", active.id).eq("report_date", date);
+    if (error) {
+      setError("삭제 실패: " + error.message);
+      return;
+    }
+    setAllMediaRows((prev) => prev.filter((r) => r.report_date !== date));
+    setError("");
+    if (selectedDate === date) setSelectedDate(null);
+  };
+
   const openLineManager = () => {
     if (!active) return;
     setEditLines(active.lines && active.lines.length > 0 ? [...active.lines] : [""]);
@@ -782,6 +797,7 @@ export default function Home() {
                     selectedDate={viewDate}
                     today={realToday}
                     onSelect={(d) => setSelectedDate(d === realToday ? null : d)}
+                    onDeleteDate={deleteDateData}
                   />
                 </div>
               )}
