@@ -43,6 +43,14 @@ export function todayStr(): string {
   return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Seoul" }).format(new Date());
 }
 
+// 캠페인 기간(시작일~종료일, 둘 다 포함)의 총 일수. 예: 8/1~8/31 -> 31일
+export function daysBetweenInclusive(startDate: string, endDate: string): number {
+  const start = new Date(`${startDate}T00:00:00Z`);
+  const end = new Date(`${endDate}T00:00:00Z`);
+  const diffDays = Math.round((end.getTime() - start.getTime()) / 86400000) + 1;
+  return Math.max(1, diffDays);
+}
+
 // 주어진 행들 중 가장 최근 업로드 시각(uploaded_at)을 찾는다. 그날 실적이 하루 전체가 아니라
 // "몇 시까지 업로드된 데이터인지"를 보여주는 용도 (업로드 시점에 따라 실제 커버 범위가 다르기 때문).
 export function latestUploadedAt(rows: { uploaded_at: string }[]): string | null {

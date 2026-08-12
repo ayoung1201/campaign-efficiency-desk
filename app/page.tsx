@@ -10,6 +10,7 @@ import {
   buildRecommendations,
   canonicalLine,
   currentSeoulHourFraction,
+  daysBetweenInclusive,
   formatSeoulDateTime,
   inRange,
   latestUploadedAt,
@@ -28,7 +29,6 @@ import LibraryPanel from "../components/LibraryPanel";
 import UploadToolbar from "../components/UploadToolbar";
 import BatchUploadModal from "../components/BatchUploadModal";
 import CampaignHeader from "../components/CampaignHeader";
-import SummaryBar from "../components/SummaryBar";
 import DailySummaryCard from "../components/DailySummaryCard";
 import StatusCard from "../components/StatusCard";
 import ProjectionCard from "../components/ProjectionCard";
@@ -498,6 +498,23 @@ export default function Home() {
     if (error) setError("일예산 저장 실패: " + error.message);
   };
 
+  // 총예산을 기간으로 나눠서 일예산을 자동 계산하는 데 쓰는 값들. daily_budget을 직접 입력한 적이 있으면
+  // 그 값이 우선이고(사용자가 명시적으로 정한 값이므로), 없을 때만 이 자동 계산값을 대신 쓴다.
+  const updateBudgetField = async (field: "total_budget" | "budget_start_date" | "budget_end_date", value: number | string | null) => {
+    if (!active) return;
+    setCampaigns((prev) => prev.map((c) => (c.id === active.id ? { ...c, [field]: value } : c)));
+    const { error } = await supabase.from("campaigns").update({ [field]: value }).eq("id", active.id);
+    if (error) setError("예산 정보 저장 실패: " + error.message);
+  };
+
+  // 자동 계산값으로 되돌리기 - 직접 입력해둔 일예산을 지운다
+  const clearDailyBudgetOverride = async () => {
+    if (!active) return;
+    setCampaigns((prev) => prev.map((c) => (c.id === active.id ? { ...c, daily_budget: null } : c)));
+    const { error } = await supabase.from("campaigns").update({ daily_budget: null }).eq("id", active.id);
+    if (error) setError("일예산 초기화 실패: " + error.message);
+  };
+
   // 캠페인마다 목표 효율 범위가 다르므로 campaigns 테이블에 캠페인 단위로 저장한다
   const updateTargetRange = async (field: "target_vtr_min" | "target_vtr_max" | "target_ctr_min" | "target_ctr_max", value: number) => {
     if (!active) return;
@@ -580,7 +597,13 @@ export default function Home() {
   const elapsedDisplay = Math.floor(elapsed);
   const remainingHrs = Math.max(0, 24 - elapsed);
   const suggestedBudget = elapsed > 0 ? (today.spend / elapsed) * 24 : today.spend;
-  const dailyBudget = active?.daily_budget ?? Math.round(suggestedBudget);
+  // 총예산 ÷ 기간으로 계산한 일예산 - 총예산과 시작/종료일을 모두 입력했을 때만 계산된다
+  const periodDailyBudget =
+    active?.total_budget && active?.budget_start_date && active?.budget_end_date
+      ? active.total_budget / daysBetweenInclusive(active.budget_start_date, active.budget_end_date)
+      : null;
+  // 우선순위: 직접 입력한 일예산 > 총예산/기간으로 자동 계산한 값 > 오늘 소진 속도로 추정한 값
+  const dailyBudget = active?.daily_budget ?? (periodDailyBudget !== null ? Math.round(periodDailyBudget) : Math.round(suggestedBudget));
   const remainingBudget = Math.max(0, dailyBudget - today.spend);
 
   const targetVTRMin = active?.target_vtr_min ?? DEFAULT_TARGET_VTR_MIN;
@@ -816,16 +839,8 @@ export default function Home() {
                 <div className="flex flex-col gap-4">
                   {isViewingToday ? (
                     <>
-                      {/* 스크롤 없이 바로 보이는 핵심 요약 줄 */}
-                      <SummaryBar
-                        today={today}
-                        currentProjection={currentProjection}
-                        todayStatusMet={todayStatusMet}
-                        statusMet={statusMet}
-                        remainingBudget={remainingBudget}
-                        remainingHrs={remainingHrs}
-                      />
-
+                      {/* 지금/예상 VTR·CTR과 남은 예산·시간은 바로 아래 카드들에 그대로 다시 나오므로
+                          별도 요약 줄로 중복 표시하지 않는다. */}
                       {/* 자세히 보기 카드들 - 카드 높이를 서로 맞춰서(items-stretch) 빈 공간 없이 배치 */}
                       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-stretch">
                         <StatusCard
@@ -852,10 +867,20 @@ export default function Home() {
                       {/* 예산은 짧고 라인별 실적은 데이터에 따라 길이가 달라서, 나란히 두면 높이가
                           안 맞아 빈 공간이 생긴다. 각자 전체 너비로 따로 둬서 그 문제를 없앤다. */}
                       <BudgetCard
+                        key={active?.id}
                         dailyBudget={dailyBudget}
                         onChangeDailyBudget={updateDailyBudget}
                         remainingBudget={remainingBudget}
                         remainingHrs={remainingHrs}
+                        isManualOverride={active?.daily_budget != null}
+                        onClearOverride={clearDailyBudgetOverride}
+                        totalBudget={active?.total_budget ?? null}
+                        budgetStartDate={active?.budget_start_date ?? null}
+                        budgetEndDate={active?.budget_end_date ?? null}
+                        periodDailyBudget={periodDailyBudget}
+                        onChangeTotalBudget={(v) => updateBudgetField("total_budget", v)}
+                        onChangeBudgetStartDate={(v) => updateBudgetField("budget_start_date", v)}
+                        onChangeBudgetEndDate={(v) => updateBudgetField("budget_end_date", v)}
                       />
 
                       {lineEstimates.length > 1 && <LineBreakdownCard lineEstimates={lineEstimates} vtrRange={vtrRange} ctrRange={ctrRange} />}

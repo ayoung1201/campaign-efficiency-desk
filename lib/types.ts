@@ -2,6 +2,9 @@ export interface Campaign {
   id: string;
   name: string;
   daily_budget: number | null;
+  total_budget: number | null; // 캠페인 전체 계약 예산 - 기간과 함께 설정하면 일예산을 자동으로 나눠서 계산해준다
+  budget_start_date: string | null;
+  budget_end_date: string | null;
   lines: string[]; // 캠페인 등록 시 정의한 라인 목록 (예: ["데스크탑_2039","모바일app_5059",...])
   banned_media: string[] | null; // 이 캠페인에는 노출되면 안 되는 매체명 목록 (예: ["더줌코리아_캐시워크"])
   target_vtr_min: number | null; // 캠페인마다 목표 효율 범위가 다르므로 캠페인 단위로 저장
