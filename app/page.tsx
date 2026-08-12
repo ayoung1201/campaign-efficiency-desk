@@ -534,6 +534,12 @@ export default function Home() {
   const realToday = todayStr();
   const viewDate = selectedDate ?? realToday;
   const isViewingToday = viewDate === realToday;
+  // "해당 날짜"라는 말 대신 실제 날짜를 보여주기 위한 짧은 표기 (예: "2026-08-10" -> "8/10")
+  const viewDateLabel = viewDate
+    .split("-")
+    .slice(1)
+    .map((p) => parseInt(p, 10))
+    .join("/");
 
   // 이 캠페인에 업로드 기록이 있는 날짜 목록 (최신순, 오늘 날짜는 데이터가 없어도 항상 포함)
   const availableDates = useMemo(() => {
@@ -803,6 +809,7 @@ export default function Home() {
                     vtrRange={vtrRange}
                     ctrRange={ctrRange}
                     asOfLabel={viewDateAsOfLabel}
+                    dateLabel={viewDateLabel}
                   />
 
                   {isViewingToday ? (

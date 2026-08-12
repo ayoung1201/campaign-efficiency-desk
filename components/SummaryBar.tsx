@@ -55,6 +55,7 @@ interface SummaryBarProps {
   vtrRange?: Range; // 과거 날짜 조회 시 목표 범위 표기용 (오늘 보기에서는 사이드바에 이미 있어 생략)
   ctrRange?: Range;
   asOfLabel?: string | null; // 과거 날짜 조회 시 몇 시까지 업로드된 데이터인지
+  dateLabel?: string; // 과거 날짜 조회 시 "해당 날짜"라는 말 대신 보여줄 실제 날짜 (예: "8/10")
 }
 
 // 스크롤 없이 한눈에 보이는 핵심 요약 줄. 오늘을 보는 중이면 지금 실적 + 예상 최종 효율 + 남은 예산/시간을,
@@ -70,6 +71,7 @@ export default function SummaryBar({
   vtrRange,
   ctrRange,
   asOfLabel,
+  dateLabel,
 }: SummaryBarProps) {
   const todayAccent = todayStatusMet ? "#0E8074" : "#C1442B";
   const projAccent = statusMet ? "#0E8074" : "#C1442B";
@@ -79,9 +81,11 @@ export default function SummaryBar({
     return (
       <div className={`${panel} px-5 py-4 flex items-center gap-4 flex-wrap`}>
         <div>
-          <div className="text-[11px] font-semibold uppercase tracking-wide text-[#9AA4B5] mb-1">해당 날짜 효율</div>
-          <Badge label="해당 날짜" met={todayStatusMet} />
+          <div className="text-[11px] font-semibold uppercase tracking-wide text-[#9AA4B5] mb-1">{dateLabel ?? "해당 날짜"} 효율</div>
+          <Badge label={dateLabel ?? "해당 날짜"} met={todayStatusMet} />
+          {asOfLabel && <div className="text-[10.5px] text-[#9AA4B5] mt-1 whitespace-nowrap">{asOfLabel} 업로드</div>}
         </div>
+        <div className="w-px self-stretch bg-[#EEF0F4]" />
         <div className="flex items-center gap-3">
           <Stat label="VTR" value={`${fmt(today.vtr)}%`} accent={todayAccent} bg={rangeBg} sub={vtrRange ? `목표 ${fmt(vtrRange.min)}~${fmt(vtrRange.max)}%` : undefined} size="hero" />
           <Stat label="CTR" value={`${fmt(today.ctr)}%`} accent={todayAccent} bg={rangeBg} sub={ctrRange ? `목표 ${fmt(ctrRange.min)}~${fmt(ctrRange.max)}%` : undefined} size="hero" />
@@ -91,7 +95,6 @@ export default function SummaryBar({
           <Stat label="Imps." value={fmtInt(today.imps)} />
           <Stat label="소진액" value={`${fmtInt(today.spend)}원`} />
         </div>
-        {asOfLabel && <div className="ml-auto text-[11.5px] text-[#9AA4B5]">{asOfLabel} 업로드분 기준</div>}
       </div>
     );
   }

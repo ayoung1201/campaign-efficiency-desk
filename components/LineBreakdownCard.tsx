@@ -36,29 +36,27 @@ export default function LineBreakdownCard({ lineEstimates, vtrRange, ctrRange, i
       <SectionTitle icon={BarChart3} color={ACCENT}>
         {isViewingToday ? "라인별 오늘 실적" : "라인별 실적"}
       </SectionTitle>
-      {/* 전체 요약(위)이 핵심이고 이건 보조 상세라서, 톤을 낮춰 작고 조용하게(색 배경 없이 텍스트만) 보여준다 */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-0.5">
+      {/* 전체 요약(위)이 핵심이고 이건 보조 상세라서 톤은 낮추되, 라인마다 테두리를 둘러 서로 구분되게 한다.
+          내용물 길이에 맞는 칩으로 두고 늘려 펼치지 않아서(justify-between 대신 flex-wrap) 여백이 길게 늘어지지 않는다. */}
+      <div className="flex flex-wrap gap-2">
         {sorted.map((le) => {
           const canon = canonicalLine(le.line);
           const color = CANON_COLOR[canon] ?? CANON_COLOR_FALLBACK;
           const vtrOk = inRange(le.vtr, vtrRange);
           const ctrOk = inRange(le.ctr, ctrRange);
           return (
-            <div key={le.line} className="flex items-center justify-between gap-2 py-1.5 border-b border-[#F4F6F9] text-[12.5px]">
-              <div className="flex items-center gap-1.5 min-w-0">
-                <span className="inline-block w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: color }} />
-                <span className="font-medium text-[#334155] truncate">{le.line}</span>
-                {le.line !== canon && <span className="text-[10.5px] text-[#9AA4B5] shrink-0">· {canon}</span>}
-              </div>
-              <div className="flex items-center gap-3 tabular-nums shrink-0">
-                <span className="text-[#9AA4B5] text-[11px]">{fmtInt(le.spend)}원</span>
-                <span className="font-semibold" style={{ color: vtrOk ? "#0E8074" : "#C1442B" }}>
-                  {fmt(le.vtr)}%
-                </span>
-                <span className="font-semibold" style={{ color: ctrOk ? "#0E8074" : "#C1442B" }}>
-                  {fmt(le.ctr)}%
-                </span>
-              </div>
+            <div key={le.line} className="flex items-center gap-2 px-2.5 py-1.5 rounded-md border border-[#E1E5EC] bg-[#FAFBFC] text-[12px]">
+              <span className="inline-block w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: color }} />
+              <span className="font-medium text-[#334155] whitespace-nowrap">{le.line}</span>
+              {le.line !== canon && <span className="text-[10.5px] text-[#9AA4B5] whitespace-nowrap">· {canon}</span>}
+              <span className="w-px h-3 bg-[#E1E5EC] shrink-0" />
+              <span className="text-[#9AA4B5] tabular-nums whitespace-nowrap">{fmtInt(le.spend)}원</span>
+              <span className="font-semibold tabular-nums whitespace-nowrap" style={{ color: vtrOk ? "#0E8074" : "#C1442B" }}>
+                {fmt(le.vtr)}%
+              </span>
+              <span className="font-semibold tabular-nums whitespace-nowrap" style={{ color: ctrOk ? "#0E8074" : "#C1442B" }}>
+                {fmt(le.ctr)}%
+              </span>
             </div>
           );
         })}
