@@ -35,10 +35,7 @@ export function LineChips({ lineEstimates, vtrRange, ctrRange }: { lineEstimates
         const items = [...groups.get(canon)!].sort((a, b) => a.line.localeCompare(b.line, "ko"));
         return (
           <div key={canon} className="flex flex-col gap-1">
-            <div className="flex items-center gap-1.5 px-0.5 text-[10.5px] font-semibold tracking-wide text-[#9AA4B5]">
-              <span className="inline-block w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: color }} />
-              {canon}
-            </div>
+            <span className="inline-block w-1.5 h-1.5 rounded-full ml-0.5" style={{ backgroundColor: color }} />
             {items.map((le) => {
               const vtrOk = inRange(le.vtr, vtrRange);
               const ctrOk = inRange(le.ctr, ctrRange);
