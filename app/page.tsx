@@ -617,6 +617,9 @@ export default function Home() {
   const todayMediaRows = useMemo(() => todayRowsOnly(allMediaRows, viewDate), [allMediaRows, viewDate]);
   const hasTodaySnapshot = todayMediaRows.length > 0;
   const today = useMemo(() => sumRows(todayMediaRows), [todayMediaRows]);
+  // 매체 상세는 오늘(또는 조회 중인 날짜) 효율을 맞추는 화면이라 그날 데이터만 보여준다 - 예전엔 전체
+  // 기간 누적이라 이미 송출이 끊긴 매체도 과거 실적 때문에 효율이 있는 것처럼 보이는 문제가 있었다.
+  const todayProfiles = useMemo(() => buildMediaProfiles(todayMediaRows), [todayMediaRows]);
 
   // 과거 날짜를 볼 때는 "하루 전체"가 아니라 실제로 몇 시까지 업로드된 데이터인지 보여준다
   // (하루 종일 업로드한 게 아니라 언제 업로드했느냐에 따라 커버 범위가 다르기 때문)
@@ -683,8 +686,8 @@ export default function Home() {
   // 현재 라인 필터 적용 + 원본 라인명 그대로 그룹핑 (표준 카테고리로 합치지 않음 - 데스크탑_2039/5059처럼
   // 같은 카테고리 안에 서로 다른 실제 라인이 있으면 매체 상세에서는 그 라인 그대로 따로 보여준다)
   const groupedProfiles = useMemo(() => {
-    const base = uploadLine === "전체" ? profiles : profiles.filter((p) => p.line === uploadLine);
-    const groups = new Map<string, typeof profiles>();
+    const base = uploadLine === "전체" ? todayProfiles : todayProfiles.filter((p) => p.line === uploadLine);
+    const groups = new Map<string, typeof todayProfiles>();
     for (const p of base) {
       const key = p.line || "전체";
       if (!groups.has(key)) groups.set(key, []);
@@ -703,7 +706,7 @@ export default function Home() {
       return a.localeCompare(b);
     });
     return keys.map((k) => ({ key: k, canon: canonicalLine(k), rows: [...groups.get(k)!].sort((a, b) => b.spend - a.spend) }));
-  }, [profiles, uploadLine]);
+  }, [todayProfiles, uploadLine]);
 
   return (
     <div className="min-h-screen flex bg-[#F4F6F9] text-[#101826]">
