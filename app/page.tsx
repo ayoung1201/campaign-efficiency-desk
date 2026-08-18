@@ -556,8 +556,11 @@ export default function Home() {
   };
 
   // --- 계산 ---
+  // profiles는 이 캠페인에 지금까지 한 번이라도 데이터가 올라온 매체 전체(캠페인 존재 여부 판단, 노출
+  // 불가 매체 후보 목록용) - 조정 추천/예상 최종 효율처럼 "오늘 무엇을 어떻게 바꿀지" 판단하는 계산에는
+  // 쓰지 않는다. 그건 오늘 실제로 돌고 있는 매체 기준(todayProfiles)이어야 한다 - 이미 오늘 소진이 0인
+  // 매체를 과거 누적 실적만 보고 "제외하라"고 추천하면 실제로 아무 효과가 없는 헛된 추천이 되기 때문.
   const profiles = useMemo(() => buildMediaProfiles(allMediaRows), [allMediaRows]);
-  const includedIds = useMemo(() => new Set(profiles.filter((p) => p.included).map((p) => p.id)), [profiles]);
   const libraryProfiles = useMemo(() => buildLibraryProfiles(library), [library]);
   const libraryByKey = useMemo(() => new Map(libraryProfiles.map((l) => [l.id, l])), [libraryProfiles]);
   // 캠페인(source)별로 지금까지 어떤 라인들이 실제로 저장돼 있는지 - 업로드가 라인마다 제대로 쌓이고 있는지
@@ -620,6 +623,7 @@ export default function Home() {
   // 매체 상세는 오늘(또는 조회 중인 날짜) 효율을 맞추는 화면이라 그날 데이터만 보여준다 - 예전엔 전체
   // 기간 누적이라 이미 송출이 끊긴 매체도 과거 실적 때문에 효율이 있는 것처럼 보이는 문제가 있었다.
   const todayProfiles = useMemo(() => buildMediaProfiles(todayMediaRows), [todayMediaRows]);
+  const todayIncludedIds = useMemo(() => new Set(todayProfiles.filter((p) => p.included).map((p) => p.id)), [todayProfiles]);
 
   // 과거 날짜를 볼 때는 "하루 전체"가 아니라 실제로 몇 시까지 업로드된 데이터인지 보여준다
   // (하루 종일 업로드한 게 아니라 언제 업로드했느냐에 따라 커버 범위가 다르기 때문)
@@ -653,16 +657,16 @@ export default function Home() {
   const bannedMedia = useMemo(() => new Set((active?.banned_media || []).map((m) => m.trim()).filter(Boolean)), [active]);
 
   const currentProjection = useMemo(
-    () => projectFinal(today, profiles, includedIds, remainingBudget),
-    [today, profiles, includedIds, remainingBudget]
+    () => projectFinal(today, todayProfiles, todayIncludedIds, remainingBudget),
+    [today, todayProfiles, todayIncludedIds, remainingBudget]
   );
 
   const recommendations = useMemo(
-    () => buildRecommendations(profiles, includedIds, today, remainingBudget, currentProjection, vtrRange, ctrRange, libraryProfiles, bannedMedia),
+    () => buildRecommendations(todayProfiles, todayIncludedIds, today, remainingBudget, currentProjection, vtrRange, ctrRange, libraryProfiles, bannedMedia),
     // vtrRange/ctrRange는 매 렌더마다 새로 만들어지는 객체라 deps에 넣으면 메모이제이션이 무의미해진다.
     // 실제 값 변화는 이미 targetVTRMin/Max, targetCTRMin/Max로 추적되므로 그것만 deps에 둔다.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [profiles, includedIds, today, remainingBudget, currentProjection, targetVTRMin, targetVTRMax, targetCTRMin, targetCTRMax, libraryProfiles, bannedMedia]
+    [todayProfiles, todayIncludedIds, today, remainingBudget, currentProjection, targetVTRMin, targetVTRMax, targetCTRMin, targetCTRMax, libraryProfiles, bannedMedia]
   );
 
   const statusMet = inRange(currentProjection.vtr, vtrRange) && inRange(currentProjection.ctr, ctrRange);
