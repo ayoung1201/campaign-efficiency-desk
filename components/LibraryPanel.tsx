@@ -205,7 +205,7 @@ export default function LibraryPanel({
           </div>
           {/* 박스 그리드 대신 얇은 구분선 + 여백만으로 정렬한 리스트. 테두리를 없애고
               폰트 굵기/색으로만 위계를 줘서 촘촘해도 답답해 보이지 않게 했다. */}
-          <div className="sm:columns-2 xl:columns-3 gap-x-8">
+          <div className="sm:columns-2 xl:columns-3 gap-x-10 [column-rule:1px_solid_#E5E9F0]">
             {[...libraryProfiles]
               .filter((l) => libViewLine === "전체" || (l.line === libViewLine && l.imps > 0))
               .sort((a, b) => profileMetrics(b).vtr - profileMetrics(a).vtr)
