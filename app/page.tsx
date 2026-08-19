@@ -71,7 +71,7 @@ export default function Home() {
 
   const [library, setLibrary] = useState<MediaLibraryRow[]>([]);
   const [showLibraryPanel, setShowLibraryPanel] = useState(false);
-  const [libViewLine, setLibViewLine] = useState("전체");
+  const [libViewLine, setLibViewLine] = useState(LIBRARY_LINE_OPTIONS[0]);
   // 캠페인 상세 리포트 파일 자체엔 라인 정보가 없어서(매체 리포트 업로드와 동일하게) 업로드 시 캠페인명 + 라인을 직접 지정한다.
   const [libCampaignName, setLibCampaignName] = useState("");
   const [libUploadLine, setLibUploadLine] = useState(LIBRARY_LINE_OPTIONS[0]);

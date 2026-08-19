@@ -8,7 +8,7 @@ import { LIBRARY_LINE_OPTIONS } from "../lib/constants";
 import BatchUploadModal from "./BatchUploadModal";
 import FileDropZone from "./FileDropZone";
 import SectionTitle from "./SectionTitle";
-import { btn, input, panel, theadRow } from "./ui";
+import { btn, input, panel } from "./ui";
 
 const ACCENT = "#0891B2";
 const CUSTOM = "__custom__";
@@ -203,35 +203,31 @@ export default function LibraryPanel({
               </button>
             ))}
           </div>
-          <div className="overflow-x-auto rounded-lg border border-[#EEF0F4]">
-            <table className="w-full text-[13px]">
-              <thead>
-                <tr className={theadRow}>
-                  <th className="text-left py-2.5 px-3 font-medium">매체</th>
-                  {libViewLine === "전체" && <th className="text-left py-2.5 px-3 font-medium">라인</th>}
-                  <th className="text-right py-2.5 px-3 font-medium">캠페인 수</th>
-                  <th className="text-right py-2.5 px-3 font-medium">평균 VTR</th>
-                  <th className="text-right py-2.5 px-3 font-medium">평균 CTR</th>
-                </tr>
-              </thead>
-              <tbody>
-                {[...libraryProfiles]
-                  .filter((l) => libViewLine === "전체" || (l.line === libViewLine && l.imps > 0))
-                  .sort((a, b) => profileMetrics(b).vtr - profileMetrics(a).vtr)
-                  .map((l) => {
-                    const { vtr, ctr } = profileMetrics(l);
-                    return (
-                      <tr key={l.id} className="border-t border-[#EEF0F4] hover:bg-[#FAFBFC]">
-                        <td className="py-2.5 px-3 font-medium">{l.media}</td>
-                        {libViewLine === "전체" && <td className="py-2.5 px-3 text-[#64748B]">{l.line}</td>}
-                        <td className="text-right py-2.5 px-3 tabular-nums">{l.campaignCount}</td>
-                        <td className="text-right py-2.5 px-3 tabular-nums font-semibold">{fmt(vtr)}%</td>
-                        <td className="text-right py-2.5 px-3 tabular-nums font-semibold">{fmt(ctr)}%</td>
-                      </tr>
-                    );
-                  })}
-              </tbody>
-            </table>
+          {/* 4개 값만 보여주는데 표 전체 너비로 늘어뜨리면 매체명과 숫자 사이에 여백만 길게 남아서,
+              내용에 맞는 칩을 여러 열로 배치하는 방식으로 바꿨다. */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-2">
+            {[...libraryProfiles]
+              .filter((l) => libViewLine === "전체" || (l.line === libViewLine && l.imps > 0))
+              .sort((a, b) => profileMetrics(b).vtr - profileMetrics(a).vtr)
+              .map((l) => {
+                const { vtr, ctr } = profileMetrics(l);
+                return (
+                  <div
+                    key={l.id}
+                    className="flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-md border border-[#E1E5EC] bg-[#FAFBFC] text-[12.5px]"
+                  >
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <span className="font-medium text-[#334155] truncate">{l.media}</span>
+                      {libViewLine === "전체" && <span className="text-[10.5px] text-[#9AA4B5] shrink-0">· {l.line}</span>}
+                    </div>
+                    <div className="flex items-center gap-2 tabular-nums shrink-0">
+                      <span className="text-[#9AA4B5] text-[11px]">{l.campaignCount}건</span>
+                      <span className="font-semibold">{fmt(vtr)}%</span>
+                      <span className="font-semibold">{fmt(ctr)}%</span>
+                    </div>
+                  </div>
+                );
+              })}
           </div>
         </>
       )}
