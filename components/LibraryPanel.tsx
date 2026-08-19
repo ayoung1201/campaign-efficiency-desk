@@ -112,17 +112,11 @@ export default function LibraryPanel({
         <div className="flex gap-2 items-center flex-wrap">
           <input
             type="text"
-            list="lib-source-suggestions"
             value={libCampaignName}
             onChange={(e) => setLibCampaignName(e.target.value)}
             placeholder="캠페인명 입력"
             className={`${input} w-44`}
           />
-          <datalist id="lib-source-suggestions">
-            {librarySourceGroups.map((g) => (
-              <option key={g.source} value={g.source} />
-            ))}
-          </datalist>
 
           {customLineMode ? (
             <input
