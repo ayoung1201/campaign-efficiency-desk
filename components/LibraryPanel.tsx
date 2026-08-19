@@ -213,14 +213,15 @@ export default function LibraryPanel({
                 const { vtr, ctr } = profileMetrics(l);
                 return (
                   <div key={l.id} className="flex items-baseline gap-2 py-2 border-b border-[#F1F3F6] break-inside-avoid">
-                    <span className="text-[12.5px] font-medium text-[#1E293B] truncate max-w-[170px]" title={l.media}>
+                    <span className="text-[12.5px] font-medium text-[#1E293B] truncate w-[150px] shrink-0" title={l.media}>
                       {l.media}
                     </span>
                     {libViewLine === "전체" && (
-                      <span className="text-[10px] text-[#B0B8C4] truncate max-w-[60px] shrink-0" title={l.line}>
+                      <span className="text-[10px] text-[#B0B8C4] truncate w-14 shrink-0" title={l.line}>
                         {l.line}
                       </span>
                     )}
+                    <span className="flex-1 min-w-[10px] border-b border-dotted border-[#DDE2EA] mb-[3px]" />
                     <div className="flex items-baseline gap-2.5 tabular-nums shrink-0">
                       <span className="text-[10px] text-[#C2C8D2]">{l.campaignCount}건</span>
                       <span className="text-[13px] font-semibold text-[#0F172A] w-11 text-right">{fmt(vtr)}%</span>
