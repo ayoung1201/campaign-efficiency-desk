@@ -213,11 +213,11 @@ export default function LibraryPanel({
                 const { vtr, ctr } = profileMetrics(l);
                 return (
                   <div key={l.id} className="flex items-baseline gap-2 py-2 border-b border-[#F1F3F6] break-inside-avoid">
-                    <span className="text-[12.5px] font-medium text-[#1E293B] truncate w-[136px] shrink-0" title={l.media}>
+                    <span className="text-[12.5px] font-medium text-[#1E293B] truncate max-w-[170px]" title={l.media}>
                       {l.media}
                     </span>
                     {libViewLine === "전체" && (
-                      <span className="text-[10px] text-[#B0B8C4] truncate w-16 shrink-0" title={l.line}>
+                      <span className="text-[10px] text-[#B0B8C4] truncate max-w-[60px] shrink-0" title={l.line}>
                         {l.line}
                       </span>
                     )}
