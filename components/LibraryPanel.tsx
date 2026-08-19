@@ -203,27 +203,24 @@ export default function LibraryPanel({
               </button>
             ))}
           </div>
-          {/* 4개 값만 보여주는데 표 전체 너비로 늘어뜨리면 매체명과 숫자 사이에 여백만 길게 남아서,
-              내용에 맞는 칩을 여러 열로 배치하는 방식으로 바꿨다. */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-2">
+          {/* 박스 그리드 대신 얇은 구분선 + 여백만으로 정렬한 리스트. 테두리를 없애고
+              폰트 굵기/색으로만 위계를 줘서 촘촘해도 답답해 보이지 않게 했다. */}
+          <div className="sm:columns-2 xl:columns-3 gap-x-8">
             {[...libraryProfiles]
               .filter((l) => libViewLine === "전체" || (l.line === libViewLine && l.imps > 0))
               .sort((a, b) => profileMetrics(b).vtr - profileMetrics(a).vtr)
               .map((l) => {
                 const { vtr, ctr } = profileMetrics(l);
                 return (
-                  <div
-                    key={l.id}
-                    className="flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-md border border-[#E1E5EC] bg-[#FAFBFC] text-[12.5px]"
-                  >
-                    <div className="flex items-center gap-1.5 min-w-0">
-                      <span className="font-medium text-[#334155] truncate">{l.media}</span>
-                      {libViewLine === "전체" && <span className="text-[10.5px] text-[#9AA4B5] shrink-0">· {l.line}</span>}
+                  <div key={l.id} className="flex items-center justify-between gap-3 py-2 border-b border-[#F1F3F6] break-inside-avoid">
+                    <div className="flex items-baseline gap-1.5 min-w-0">
+                      <span className="text-[12.5px] font-medium text-[#1E293B] truncate">{l.media}</span>
+                      {libViewLine === "전체" && <span className="text-[10px] text-[#B0B8C4] shrink-0">{l.line}</span>}
                     </div>
-                    <div className="flex items-center gap-2 tabular-nums shrink-0">
-                      <span className="text-[#9AA4B5] text-[11px]">{l.campaignCount}건</span>
-                      <span className="font-semibold">{fmt(vtr)}%</span>
-                      <span className="font-semibold">{fmt(ctr)}%</span>
+                    <div className="flex items-baseline gap-3 shrink-0 tabular-nums">
+                      <span className="text-[10px] text-[#C2C8D2]">{l.campaignCount}건</span>
+                      <span className="text-[13px] font-semibold text-[#0F172A] w-11 text-right">{fmt(vtr)}%</span>
+                      <span className="text-[12px] text-[#64748B] w-10 text-right">{fmt(ctr)}%</span>
                     </div>
                   </div>
                 );
