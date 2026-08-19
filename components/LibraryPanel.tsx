@@ -205,19 +205,17 @@ export default function LibraryPanel({
           </div>
           {/* 박스 그리드 대신 얇은 구분선 + 여백만으로 정렬한 리스트. 테두리를 없애고
               폰트 굵기/색으로만 위계를 줘서 촘촘해도 답답해 보이지 않게 했다. */}
-          <div className="sm:columns-2 xl:columns-3 gap-x-10 [column-rule:1px_solid_#E5E9F0]">
+          <div className="sm:columns-2 xl:columns-3 gap-x-14 [column-rule:1px_solid_#E5E9F0]">
             {[...libraryProfiles]
               .filter((l) => libViewLine === "전체" || (l.line === libViewLine && l.imps > 0))
               .sort((a, b) => profileMetrics(b).vtr - profileMetrics(a).vtr)
               .map((l) => {
                 const { vtr, ctr } = profileMetrics(l);
                 return (
-                  <div key={l.id} className="flex items-center justify-between gap-3 py-2 border-b border-[#F1F3F6] break-inside-avoid">
-                    <div className="flex items-baseline gap-1.5 min-w-0">
-                      <span className="text-[12.5px] font-medium text-[#1E293B] truncate">{l.media}</span>
-                      {libViewLine === "전체" && <span className="text-[10px] text-[#B0B8C4] shrink-0">{l.line}</span>}
-                    </div>
-                    <div className="flex items-baseline gap-3 shrink-0 tabular-nums">
+                  <div key={l.id} className="flex items-baseline gap-2 py-2 border-b border-[#F1F3F6] break-inside-avoid">
+                    <span className="text-[12.5px] font-medium text-[#1E293B] truncate w-[84px] shrink-0">{l.media}</span>
+                    {libViewLine === "전체" && <span className="text-[10px] text-[#B0B8C4] truncate w-12 shrink-0">{l.line}</span>}
+                    <div className="flex items-baseline gap-2.5 tabular-nums shrink-0">
                       <span className="text-[10px] text-[#C2C8D2]">{l.campaignCount}건</span>
                       <span className="text-[13px] font-semibold text-[#0F172A] w-11 text-right">{fmt(vtr)}%</span>
                       <span className="text-[12px] text-[#64748B] w-10 text-right">{fmt(ctr)}%</span>
